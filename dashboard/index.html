@@ -1,0 +1,1493 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Grok AI Trading Command Center</title>
+<style>
+  :root {
+    color-scheme: dark;
+    --bg: #0a0a0b; --panel: #121214; --panel-2: #18181b; --line: #26262b; --text: #ececee; --muted: #9b9ba4;
+    --gold: #d6b25e; --gold-ink: #e8c873; --gold-bg: #1b1609; --gold-line: #5a4a22;
+    --green: #3ecf8e; --green-line: #1d5a40;
+    --red: #ef5b5b; --red-ink: #ffc9c9; --red-bg: #2a1010; --red-line: #6a2222;
+    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Inter", "Segoe UI", sans-serif; }
+  a { color: var(--gold-ink); }
+  code { font-family: var(--mono); font-size: .92em; }
+  :focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  [hidden] { display: none !important; }
+
+  .top { position: sticky; top: 0; z-index: 10; background: var(--bg); border-bottom: 1px solid var(--line); }
+  .simbar { background: var(--gold); color: #111; text-align: center; font: 700 12px var(--mono); letter-spacing: .12em; padding: 5px 12px; }
+  header { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; padding: 12px 24px 4px; max-width: 1500px; margin: 0 auto; }
+  .brand { display: flex; align-items: center; gap: 10px; color: var(--gold); }
+  .brand h1 { margin: 0; font-size: 16px; letter-spacing: .08em; text-transform: uppercase; color: var(--text); }
+  .brand h1 span { color: var(--gold); }
+  .status { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .pill { font: 600 11px var(--mono); letter-spacing: .06em; padding: 3px 8px; border-radius: 999px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .pill.good { color: var(--green); border-color: var(--green-line); }
+  .pill.bad { color: var(--red); border-color: var(--red-line); background: var(--red-bg); }
+  nav { display: flex; gap: 2px; padding: 0 24px; overflow-x: auto; max-width: 1500px; margin: 0 auto; }
+  nav a { color: var(--muted); text-decoration: none; padding: 10px 12px; border-bottom: 2px solid transparent; white-space: nowrap; font-weight: 600; font-size: 13px; }
+  nav a:hover { color: var(--text); }
+  nav a[aria-current="page"] { color: var(--gold-ink); border-bottom-color: var(--gold); }
+
+  .alerts, #alerts { max-width: 1500px; margin: 12px auto 0; padding: 0 24px; display: grid; gap: 8px; }
+  #alerts { margin: 0; padding: 0; }
+  .alerts:not(:has(.alert:not([hidden]))) { display: none; }
+  .alert { border: 1px solid var(--red-line); background: var(--red-bg); color: var(--red-ink); border-radius: 10px; padding: 10px 14px; }
+  .alert b { color: var(--red); }
+  .alert.ok { border-color: var(--green-line); background: #0d2219; color: #c9f5e0; }
+  button:disabled { opacity: .5; cursor: not-allowed; }
+  pre.out { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 260px; overflow: auto; background: var(--panel-2); padding: 10px; border-radius: 8px; }
+  main { max-width: 1500px; margin: 0 auto; padding: 16px 24px 40px; }
+  .view-title { display: flex; align-items: baseline; justify-content: space-between; gap: 4px 12px; flex-wrap: wrap; margin: 4px 0 14px; }
+  .view-title h2 { margin: 0; font-size: 20px; }
+  .view-title p { margin: 0; color: var(--muted); font-size: 13px; }
+
+  .grid { display: grid; gap: 16px; grid-template-columns: repeat(12, minmax(0, 1fr)); }
+  .s12 { grid-column: span 12; } .s8 { grid-column: span 8; } .s7 { grid-column: span 7; } .s6 { grid-column: span 6; } .s5 { grid-column: span 5; } .s4 { grid-column: span 4; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; min-width: 0; }
+  .card > h3 { margin: 0 0 12px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fill, minmax(min(180px, 100%), 1fr)); }
+  .kpi .label { color: var(--muted); font-size: 11px; text-transform: uppercase; letter-spacing: .1em; }
+  .kpi .value { font: 600 20px var(--mono); margin-top: 6px; overflow-wrap: anywhere; }
+  .kpi .sub { color: var(--muted); font-size: 12px; margin-top: 4px; }
+  .up { color: var(--green); } .down, .bad { color: var(--red); } .muted { color: var(--muted); }
+
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th { text-align: left; color: var(--muted); font-weight: 500; font-size: 11px; text-transform: uppercase; letter-spacing: .08em; padding: 0 10px 8px 0; white-space: nowrap; }
+  td { padding: 7px 10px 7px 0; border-top: 1px solid var(--line); font-family: var(--mono); white-space: nowrap; vertical-align: top; }
+  td.text { font-family: inherit; color: var(--muted); white-space: normal; min-width: 200px; }
+  .scroll { max-height: 380px; overflow: auto; }
+  .empty { color: var(--muted); padding: 10px 0; margin: 0; }
+  .na { font: 700 15px var(--mono); letter-spacing: .1em; color: var(--red); border: 1px dashed var(--red-line); border-radius: 10px; padding: 24px; text-align: center; margin: 0; }
+  .badge { display: inline-block; font: 700 10.5px var(--mono); letter-spacing: .08em; padding: 3px 7px; border-radius: 5px; border: 1px solid var(--line); color: var(--muted); white-space: nowrap; }
+  .badge.good { color: var(--green); border-color: var(--green-line); }
+  .badge.warn { color: var(--red); border-color: var(--red-line); }
+  .badge.bad { color: #fff; background: #b33a3a; border-color: #b33a3a; }
+
+  .agents { display: grid; gap: 16px; grid-template-columns: repeat(auto-fill, minmax(min(340px, 100%), 1fr)); }
+  .agent-head { display: flex; align-items: center; gap: 10px; margin-bottom: 12px; }
+  .agent-head h3 { margin: 0; font-size: 15px; }
+  .agent-head small { color: var(--muted); font-family: var(--mono); font-size: 11.5px; }
+  .agent-head .badge { margin-left: auto; }
+  .icon { width: 38px; height: 38px; border-radius: 10px; display: grid; place-items: center; background: var(--gold-bg); border: 1px solid var(--gold-line); color: var(--gold); flex: none; }
+  dl.facts { display: grid; grid-template-columns: 118px minmax(0, 1fr); gap: 7px 10px; margin: 0; font-size: 13px; }
+  dl.facts dt { color: var(--muted); }
+  dl.facts dd { margin: 0; overflow-wrap: anywhere; }
+  .out { font-family: var(--mono); font-size: 12.5px; }
+  ul.warn { margin: 0; padding-left: 18px; color: var(--red-ink); }
+  .mini-agents { display: grid; gap: 8px; grid-template-columns: repeat(auto-fill, minmax(min(200px, 100%), 1fr)); }
+  .mini-agent { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 10px; color: var(--text); text-decoration: none; }
+  .mini-agent:hover { border-color: var(--gold-line); }
+  .mini-agent .icon { width: 30px; height: 30px; border-radius: 8px; }
+  .mini-agent span.name { font-size: 13px; font-weight: 600; flex: 1; }
+
+  button { background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 14px; font: inherit; cursor: pointer; }
+  .form label { display: block; margin-top: 10px; font-size: 12.5px; color: var(--muted); }
+  .form input, .form textarea { display: block; width: 100%; margin-top: 4px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  .form button { margin-top: 12px; }
+  .mk { stroke: var(--bg); stroke-width: 1.5; } .mk.buy { fill: var(--green); } .mk.sell { fill: var(--red); }
+  .form-grid { display: grid; gap: 4px 14px; grid-template-columns: repeat(auto-fill, minmax(min(190px, 100%), 1fr)); }
+  .form select { display: block; width: 100%; margin-top: 4px; background: var(--panel-2); color: var(--text); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; font: inherit; }
+  button:hover { border-color: var(--gold); }
+  .btn-sm { padding: 4px 10px; font-size: 12px; }
+  .approve { border-color: var(--green-line); color: var(--green); }
+  .reject, .danger { border-color: var(--red-line); color: var(--red); }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .tabs button[aria-selected="true"] { border-color: var(--gold); color: var(--gold-ink); background: var(--gold-bg); }
+  .source { display: flex; flex-wrap: wrap; gap: 6px 18px; font-size: 12.5px; color: var(--muted); margin-bottom: 12px; }
+  .source b { color: var(--text); font-weight: 600; }
+  .source b.bad { color: var(--red); }
+
+  .controls { display: grid; gap: 14px; }
+  .control { display: flex; align-items: center; justify-content: space-between; gap: 10px 16px; flex-wrap: wrap; }
+  .control > div { flex: 1 1 240px; }
+  .control strong { display: block; }
+  .control p { margin: 2px 0 0; color: var(--muted); font-size: 12.5px; max-width: 520px; }
+  .meter-row { padding: 10px 0; border-top: 1px solid var(--line); }
+  .meter-row:first-child { border-top: 0; padding-top: 0; }
+  .meter-head { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; font-size: 13px; }
+  .meter-head span:last-child { font-family: var(--mono); }
+  .meter { height: 8px; background: var(--panel-2); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; margin-top: 6px; }
+  .meter i { display: block; height: 100%; background: var(--gold); }
+  .meter i.bad { background: var(--red); }
+  .callout { border: 1px solid var(--red-line); background: var(--red-bg); border-radius: 10px; padding: 12px 14px; color: var(--red-ink); font-size: 13px; margin: 0; }
+  .callout b { color: var(--red); }
+  .note { color: var(--muted); font-size: 12.5px; margin: 10px 0 0; }
+  .note li { margin-top: 4px; }
+
+  .feed div { padding: 6px 0; border-bottom: 1px solid var(--line); font-size: 12.5px; }
+  .feed time { color: var(--muted); font-family: var(--mono); margin-right: 8px; }
+  .feed .who { color: var(--gold-ink); margin-right: 6px; }
+
+  .chart-wrap { position: relative; touch-action: pan-y; }
+  .chart-wrap svg { display: block; }
+  .axis text { fill: var(--muted); font: 11px var(--mono); }
+  .grid-line { stroke: var(--line); stroke-width: 1; }
+  .start-line { stroke: var(--gold); stroke-width: 1; stroke-dasharray: 4 4; }
+  .start-label { fill: var(--gold-ink); font: 11px var(--mono); }
+  .line { fill: none; stroke-width: 2; stroke-linejoin: round; stroke-linecap: round; }
+  .line.up, .spark .up { stroke: var(--green); } .line.down, .spark .down { stroke: var(--red); }
+  /* stock chart series: dataviz reference dark palette slots 1-3 (validated on #121214) + dash patterns */
+  .line.s1 { stroke: #3987e5; } .line.s2 { stroke: #d95926; stroke-dasharray: 7 4; } .line.s3 { stroke: #199e70; stroke-dasharray: 2 4; }
+  .xd.s1 { fill: #3987e5; } .xd.s2 { fill: #d95926; } .xd.s3 { fill: #199e70; }
+  .legend { display: flex; flex-wrap: wrap; gap: 6px 16px; font-size: 12.5px; color: var(--muted); margin: 4px 0 6px; }
+  .sw { display: inline-block; width: 22px; border-top: 2px solid; vertical-align: middle; margin-right: 6px; }
+  .sw.s1 { border-color: #3987e5; } .sw.s2 { border-color: #d95926; border-top-style: dashed; } .sw.s3 { border-color: #199e70; border-top-style: dotted; }
+  h3.sub { margin: 16px 0 8px; font-size: 11px; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  .xh { stroke: var(--muted); stroke-width: 1; }
+  .xd { stroke: var(--panel); stroke-width: 2; }
+  .xd.up { fill: var(--green); } .xd.down { fill: var(--red); }
+  .tip { position: absolute; pointer-events: none; background: #000; border: 1px solid var(--gold-line); border-radius: 8px; padding: 6px 9px; font: 12px/1.4 var(--mono); white-space: nowrap; }
+  .spark polyline { fill: none; stroke-width: 1.5; stroke-linejoin: round; }
+  details summary { cursor: pointer; color: var(--gold-ink); font-size: 13px; margin-top: 12px; }
+
+  footer { text-align: center; color: var(--muted); font-size: 12px; padding: 0 24px 30px; }
+  body.stale main { opacity: .5; }
+
+  @media (max-width: 1000px) { .s8, .s7, .s6, .s5, .s4 { grid-column: span 12; } }
+  @media (max-width: 560px) {
+    header, nav, main, .alerts { padding-left: 16px; padding-right: 16px; }
+    .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .kpi .value { font-size: 17px; }
+    dl.facts { grid-template-columns: minmax(0, 1fr); gap: 2px; }
+    dl.facts dd { margin-bottom: 6px; }
+  }
+</style>
+</head>
+<body>
+<div class="top">
+  <div class="simbar" role="note">SIMULATION ONLY · OFFLINE DEMO DATA · NO REAL BROKERAGE · NO REAL MONEY</div>
+  <header>
+    <div class="brand">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 2 7 12 12 22 7 12 2"/><polyline points="2 17 12 22 22 17"/><polyline points="2 12 12 17 22 12"/></svg>
+      <h1>Grok AI <span>Trading Command Center</span></h1>
+    </div>
+    <div class="status">
+      <span class="pill" id="connPill">CONNECTING…</span>
+      <span class="pill" id="grokPill">GROK ?</span>
+      <span class="pill" id="runPill">TRADING ?</span>
+      <span class="pill" id="cyclePill">CYCLE –</span>
+      <button class="btn-sm danger" id="stopBtnTop" data-action="toggle">Emergency stop</button>
+    </div>
+  </header>
+  <nav aria-label="Dashboard sections">
+    <a href="#overview">Overview</a>
+    <a href="#agents">Agents</a>
+    <a href="#stocks">Stocks (Real)</a>
+    <a href="#crypto">Crypto (Real)</a>
+    <a href="#markets">Sim Markets</a>
+    <a href="#portfolio">Portfolio</a>
+    <a href="#performance">Performance</a>
+    <a href="#risk">Risk &amp; Decisions</a>
+    <a href="#decisions">Decision Center (L9)</a>
+    <a href="#riskctl">Risk Control (L10)</a>
+    <a href="#backtest">Backtest Lab (L11)</a>
+  </nav>
+</div>
+
+<div class="alerts"><div id="alerts" aria-live="polite"></div><div class="alert" id="flash" role="alert" hidden></div></div>
+
+<main>
+  <!-- 1. OVERVIEW -->
+  <section id="view-overview" aria-labelledby="h-overview">
+    <div class="view-title"><h2 id="h-overview">Overview</h2><p>Simulated account at a glance. Every number comes from <code>/api/state</code>.</p></div>
+    <div class="grid">
+      <div class="s12 kpis" id="ovKpis"></div>
+      <section class="card s7"><h3>Recent simulated trades</h3><div class="scroll" id="ovTrades"></div></section>
+      <section class="card s5"><h3>Agents</h3><div class="mini-agents" id="ovAgents"></div><p class="note"><a href="#agents">Open the agent command center →</a></p></section>
+      <section class="card s12" id="ovBug"></section>
+    </div>
+  </section>
+
+  <!-- 2. AGENTS -->
+  <section id="view-agents" aria-labelledby="h-agents" hidden>
+    <div class="view-title"><h2 id="h-agents">Six-Agent Command Center</h2><p>Status comes from real run times recorded by <code>app/engine.py</code>. No run time means no ACTIVE badge.</p></div>
+    <section class="card" id="grokCard" style="margin-bottom:16px"></section>
+    <div class="agents" id="agentCards"></div>
+    <section class="card" style="margin-top:16px"><h3>Live agent feed</h3><div class="scroll feed" id="feed"></div></section>
+  </section>
+
+  <!-- 3a. STOCKS (REAL HISTORICAL DATA) -->
+  <section id="view-stocks" aria-labelledby="h-stocks" hidden>
+    <div class="view-title"><h2 id="h-stocks">Stocks · real historical data</h2><p>Daily bars from Alpha Vantage or your CSV, stored in <code>data/market_data.db</code>. Not real-time. Never used by the trading simulation.</p></div>
+    <div class="card">
+      <div class="tabs" role="tablist" aria-label="Stock" id="stockTabs"></div>
+      <div id="stockHead"></div>
+      <div id="stockChartBox">
+        <div class="legend" aria-hidden="true"><span><i class="sw s1"></i>Close</span><span><i class="sw s2"></i>SMA 5</span><span><i class="sw s3"></i>SMA 20</span></div>
+        <div class="chart-wrap"><div id="stockChart"></div><div class="tip" hidden></div></div>
+      </div>
+    </div>
+    <div class="grid" id="stockData" style="margin-top:16px">
+      <div class="s12 kpis" id="stockKpis"></div>
+      <section class="card s12"><h3>Analysis · Market Analyst rules (research only, never traded)</h3><div id="stockAnalysis"></div></section>
+      <section class="card s12"><h3>Daily OHLCV (latest first)</h3><div class="scroll" id="stockBars"></div></section>
+    </div>
+    <section class="card" style="margin-top:16px"><h3>Fetch / import log</h3><div class="scroll" id="stockLog"></div></section>
+  </section>
+
+  <!-- 3a2. CRYPTO (REAL HISTORICAL KRAKEN DATA) -->
+  <section id="view-crypto" aria-labelledby="h-crypto" hidden>
+    <div class="view-title"><h2 id="h-crypto">Crypto · Kraken spot, historical</h2><p>Confirmed candles from Kraken's public API or your CSV, stored in <code>data/market_data.db</code>. HISTORICAL, not real-time. Never used by the trading simulation.</p></div>
+    <div class="card">
+      <div class="tabs" role="tablist" aria-label="Pair" id="cryptoTabs"></div>
+      <div class="tabs" role="tablist" aria-label="Interval">
+        <button role="tab" data-interval="1" aria-selected="false">1 min</button>
+        <button role="tab" data-interval="5" aria-selected="false">5 min</button>
+        <button role="tab" data-interval="15" aria-selected="false">15 min</button>
+        <button role="tab" data-interval="60" aria-selected="true">60 min</button>
+        <button role="tab" data-interval="240" aria-selected="false">4 h</button>
+        <button role="tab" data-interval="1440" aria-selected="false">1 day</button>
+      </div>
+      <div id="cryptoHead"></div>
+      <div id="cryptoChartBox">
+        <div class="legend" aria-hidden="true"><span><i class="sw s1"></i>Close</span><span><i class="sw s2"></i>SMA 20</span><span><i class="sw s3"></i>EMA 12</span></div>
+        <div class="chart-wrap"><div id="cryptoChart"></div><div class="tip" hidden></div></div>
+        <h3 class="sub">Volume (base asset)</h3><div id="cryptoVolume"></div>
+      </div>
+    </div>
+    <div class="grid" id="cryptoData" style="margin-top:16px">
+      <div class="s12 kpis" id="cryptoKpis"></div>
+      <section class="card s12"><h3>Market Analyst report (research only, never traded)</h3><div id="cryptoAnalysis"></div></section>
+      <section class="card s12"><h3>OHLCV candles (latest first, UTC)</h3><div class="scroll" id="cryptoBars"></div></section>
+    </div>
+    <section class="card" style="margin-top:16px"><h3>Fetch / import log</h3><div class="scroll" id="cryptoLog"></div></section>
+  </section>
+
+  <!-- 3b. SIMULATOR MARKETS (DEMO PRICES) -->
+  <section id="view-markets" aria-labelledby="h-markets" hidden>
+    <div class="view-title"><h2 id="h-markets">Simulator Markets · demo prices</h2><p>Prices from the offline simulator that the trading team trades on, plus what the Market Analyst, News Analyst and Strategy Agent made of them. For real stock history open <a href="#stocks">Stocks (Real)</a>.</p></div>
+    <div class="card">
+      <div class="tabs" role="tablist" aria-label="Market type">
+        <button role="tab" data-tab="stock" aria-selected="true">Stocks &amp; ETFs (simulated)</button>
+        <button role="tab" data-tab="crypto" aria-selected="false">Crypto (simulated)</button>
+        <button role="tab" data-tab="prediction" aria-selected="false">Prediction markets</button>
+      </div>
+      <div id="marketBody" role="tabpanel"></div>
+    </div>
+  </section>
+
+  <!-- 4. PORTFOLIO -->
+  <section id="view-portfolio" aria-labelledby="h-portfolio" hidden>
+    <div class="view-title"><h2 id="h-portfolio">Simulated Portfolio</h2><p>Paper account from <code>app/broker.py</code>. No real money, no real orders.</p></div>
+    <div class="grid">
+      <div class="s12 kpis" id="pfKpis"></div>
+      <section class="card s12"><h3>Open positions</h3><div class="scroll" id="positions"></div></section>
+      <section class="card s12"><h3>Trade history</h3><div class="scroll" id="trades"></div></section>
+    </div>
+  </section>
+
+  <!-- 5. PERFORMANCE -->
+  <section id="view-performance" aria-labelledby="h-performance" hidden>
+    <div class="view-title"><h2 id="h-performance">Performance Analytics</h2><p>Computed by the Performance Analyst from simulated trades. Values that can't be computed yet show N/A.</p></div>
+    <div class="grid">
+      <section class="card s12">
+        <h3>Simulated account equity</h3>
+        <div class="chart-wrap" id="chartWrap"><div id="chart"></div><div class="tip" id="tip" hidden></div></div>
+        <details id="eqDetails"><summary>Show the chart data as a table</summary><div class="scroll" id="eqTable"></div></details>
+      </section>
+      <div class="s12 kpis" id="perfKpis"></div>
+      <section class="card s12"><h3>How to read these numbers</h3><ul class="note" id="perfNotes"></ul></section>
+    </div>
+  </section>
+
+  <!-- 6. RISK & DECISIONS -->
+  <section id="view-risk" aria-labelledby="h-risk" hidden>
+    <div class="view-title"><h2 id="h-risk">Risk &amp; Trade Decision Center</h2><p>The Risk Manager (<code>app/agents/risk_manager.py</code>) is deterministic code and has the final say.</p></div>
+    <div class="grid">
+      <section class="card s12" id="riskBug"></section>
+      <section class="card s6"><h3>Controls</h3>
+        <div class="controls">
+          <div class="control"><div><strong>Emergency stop</strong><p id="stopText"></p></div><button class="danger" id="stopBtn" data-action="toggle">Emergency stop</button></div>
+          <div class="control"><div><strong>Human approval</strong><p id="approvalText"></p></div><button id="approvalBtn" data-action="approval">Human approval</button></div>
+          <div class="control"><div><strong>Reset account</strong><p>Back to starting simulated cash. Clears positions, trades and the daily-loss baseline.</p></div><button class="danger" data-action="reset">Reset account</button></div>
+        </div>
+      </section>
+      <section class="card s6"><h3>Risk status right now</h3><div id="riskStatus"></div></section>
+      <section class="card s12"><h3>Waiting for your approval</h3><div class="scroll" id="pending"></div><p class="note" id="approvalNote"></p></section>
+      <section class="card s7"><h3>Strategy Agent proposals (BUY / SELL / HOLD / NO TRADE)</h3><div class="scroll" id="proposals"></div></section>
+      <section class="card s5"><h3>Risk limits (from .env)</h3><div class="scroll" id="limits"></div></section>
+      <section class="card s12"><h3>Risk Manager verdicts</h3><div class="scroll" id="risklog"></div></section>
+    </div>
+  </section>
+
+  <!-- 11. BACKTESTING LAB (Lesson 11, stored historical data, isolated per run) -->
+  <section id="view-backtest" aria-labelledby="h-backtest" hidden>
+    <div class="view-title"><h2 id="h-backtest">Backtesting Lab · SIMULATION / HISTORICAL BACKTEST</h2><p>Replays stored candles through the existing agents and the Lesson 10 risk rules. Each run has its own account and risk state; the live paper ledger and real orders are never touched. Every value comes from <code>/api/backtest</code>.</p></div>
+    <p class="callout" role="note"><b>HISTORICAL BACKTEST, not a forecast and not trading.</b> SIMULATED_APPROVAL is a backtest-only policy that models approval of past proposals; it is not a human approval and never reaches the live approval path. DEMO runs use synthetic data and are labeled DEMO.</p>
+    <div class="grid" style="margin-top:16px">
+      <section class="card s12"><h3>Run settings</h3>
+        <form class="form" id="btForm">
+          <div class="form-grid">
+            <label>Data<select id="btSource"><option value="REAL">REAL stored data</option><option value="DEMO">DEMO synthetic (not real)</option></select></label>
+            <label>Market<select id="btMarket"></select></label>
+            <label>Symbol<select id="btSymbol"></select></label>
+            <label>Interval<select id="btInterval"></select></label>
+            <label>Start date (optional)<input id="btStart" type="date"></label>
+            <label>End date (optional)<input id="btEnd" type="date"></label>
+            <label>Train share (rest = Test)<input id="btRatio" type="number" min="0.1" max="0.9" step="any" value="0.7"></label>
+            <label>Starting equity<input id="btEquity" type="number" min="1" step="any"></label>
+            <label>Fee % per side<input id="btFee" type="number" min="0" max="5" step="any"></label>
+            <label>Slippage % per side<input id="btSlip" type="number" min="0" max="5" step="any"></label>
+            <label>Approval policy<select id="btPolicy"><option value="PROPOSAL_ONLY">PROPOSAL_ONLY (no fills)</option><option value="SIMULATED_APPROVAL">SIMULATED_APPROVAL (backtest only)</option></select></label>
+          </div>
+          <p class="note" id="btHint"></p>
+          <button type="submit" id="btRunBtn">Run backtest</button>
+        </form>
+      </section>
+      <section class="card s12"><h3>Runs</h3><div class="scroll" id="btRuns"></div></section>
+      <section class="card s12" id="btResult"><h3>Result</h3><div id="btHead"><p class="empty">Run a backtest or pick one above.</p></div></section>
+      <section class="card s12" id="btCharts" hidden>
+        <div class="tabs" role="tablist" aria-label="Segment" id="btSegTabs"></div>
+        <h3>Equity: strategy vs Buy &amp; Hold</h3>
+        <div class="legend" aria-hidden="true"><span><i class="sw s1"></i>Strategy</span><span><i class="sw s2"></i>Buy &amp; Hold</span></div>
+        <div class="chart-wrap"><div id="btEq"></div><div class="tip" hidden></div></div>
+        <h3>Drawdown (%)</h3><div class="chart-wrap"><div id="btDd"></div><div class="tip" hidden></div></div>
+        <h3>Price with simulated entries (green) and exits (red)</h3><div class="chart-wrap"><div id="btPx"></div><div class="tip" hidden></div></div>
+        <p class="note" id="btChartNote"></p>
+      </section>
+      <section class="card s12" id="btTables" hidden><h3>Trades</h3><div class="scroll" id="btTrades"></div>
+        <h3 style="margin-top:16px">Risk events</h3><div class="scroll" id="btEvents"></div>
+        <h3 style="margin-top:16px">BUY / SELL proposals (first 2,000)</h3><div class="scroll" id="btProps"></div></section>
+    </div>
+  </section>
+
+  <!-- 10. RISK CONTROL CENTER (Lesson 10, risk state of the paper decision ledger) -->
+  <section id="view-riskctl" aria-labelledby="h-riskctl" hidden>
+    <div class="view-title"><h2 id="h-riskctl">Risk Control Center · SIMULATION ONLY</h2><p>Risk state of the paper decision ledger (<code>data/decisions.db</code>), from <code>/api/decisions</code>. Deterministic code: no AI can change a limit, approve an order or reset the kill switch. Every trade here is simulated.</p></div>
+    <div id="rcBanner" aria-live="polite"></div>
+    <div class="grid" style="margin-top:16px">
+      <div class="s12 kpis" id="rcKpis"></div>
+      <section class="card s6"><h3>Drawdown kill switch</h3><div id="rcKill"></div>
+        <form class="form" id="rcResetForm" hidden>
+          <p class="note">Reset only after reviewing why it fired. The server checks every field, needs fresh prices, records the review and re-bases the peak to current equity. It never resets by itself.</p>
+          <label>Reviewer name<input id="rcReviewer" autocomplete="name" required></label>
+          <label>Review note (10+ characters)<textarea id="rcNote" rows="2" required></textarea></label>
+          <label>Type <code id="rcPhrase"></code> to confirm<input id="rcConfirm" autocomplete="off" required></label>
+          <button type="submit" class="danger" id="rcResetBtn">Request kill switch reset</button>
+        </form>
+      </section>
+      <section class="card s6"><h3>Limits in force (from .env)</h3><div class="scroll" id="rcLimits"></div>
+        <div class="controls" style="margin-top:12px"><div class="control"><div><strong>Check stop-losses now</strong><p>Simulated stop-loss / take-profit on stored candles for every paper position. Also runs at the start of each decision cycle.</p></div><button id="rcStopsBtn" data-action="check-stops">Check stop-losses</button></div></div>
+      </section>
+      <section class="card s12"><h3>Waiting for your approval</h3><div class="scroll" id="rcPending"></div></section>
+      <section class="card s12"><h3>Recently rejected or blocked trades</h3><div class="scroll" id="rcRejected"></div></section>
+      <section class="card s12"><h3>Stop-loss events (SIMULATION ONLY)</h3><div class="scroll" id="rcStops"></div></section>
+      <section class="card s12"><h3>Risk log</h3><div class="scroll" id="rcLog"></div></section>
+    </div>
+  </section>
+
+  <!-- 9. TRADE DECISION CENTER (Lesson 9, real stored data, paper ledger) -->
+  <section id="view-decisions" aria-labelledby="h-decisions" hidden>
+    <div class="view-title"><h2 id="h-decisions">Trade Decision Center · SIMULATION ONLY</h2><p>Market Analyst + News Analyst → Strategy Agent → Risk Manager → <b>your approval</b> → Portfolio Manager (paper ledger <code>data/decisions.db</code>) → Performance Analyst. Every value comes from <code>/api/decisions</code>.</p></div>
+    <p class="callout" role="note"><b>SIMULATION ONLY. Approve does NOT place a real order.</b> It writes one simulated paper fill to <code>data/decisions.db</code>. Nothing is ever sent to an exchange, broker or wallet. Decisions use stored HISTORICAL bars (stocks: Alpha Vantage / CSV, crypto: Kraken spot), not real-time prices. Separate from the random-walk simulator and its account.</p>
+    <div class="grid" style="margin-top:16px">
+      <section class="card s12"><h3>Decision cycle</h3>
+        <div class="controls"><div class="control"><div><strong>Run decision cycle</strong><p id="decRunText"></p></div><button id="decRunBtn" data-action="decisions-run">Run decision cycle</button></div></div>
+      </section>
+      <div class="s12 kpis" id="decKpis"></div>
+      <section class="card s12"><h3>Latest run · one proposal per symbol</h3><div class="scroll" id="decLatest"></div><p class="note" id="decNote"></p></section>
+      <section class="card s6"><h3>Paper positions (decision ledger)</h3><div class="scroll" id="decPositions"></div></section>
+      <section class="card s6"><h3>Risk settings in force (from .env, unchanged)</h3><div class="scroll" id="decSettings"></div></section>
+      <section class="card s12"><h3>Simulated fills · portfolio changes</h3><div class="scroll" id="decFills"></div></section>
+      <section class="card s12"><h3>Recent proposal history</h3><div class="scroll" id="decHistory"></div></section>
+    </div>
+  </section>
+</main>
+<footer>Simulation only. Offline demo data, no real brokerage, no real money. Educational, not financial advice. Simulated results do not predict real returns.</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+const NA = "N/A";
+const isNum = (n) => n !== null && n !== undefined && !Number.isNaN(Number(n));
+const money = (n) => !isNum(n) ? NA : (n < 0 ? "-$" : "$") + Math.abs(Number(n)).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 });
+const pct = (n) => !isNum(n) ? NA : (n > 0 ? "+" : "") + Number(n).toFixed(2) + "%";
+const dd = (n) => !isNum(n) ? NA : Number(n) > 0 ? "-" + Number(n).toFixed(2) + "%" : "0.00%";  // drawdown is stored as a positive number
+const cls = (n) => n > 0 ? "up" : n < 0 ? "down" : "";
+const time = (t) => !t ? NA : new Date(t * 1000).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" });
+const ago = (t, s) => !t ? "" : ` (${Math.max(0, Math.round(s.server_time - t))}s ago)`;
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const price = (type, p) => !isNum(p) ? NA : type === "prediction" ? (p * 100).toFixed(1) + "% prob" : money(p);
+const qty = (type, q) => !isNum(q) ? NA : Number(q).toFixed(type === "stock" ? 0 : 4);
+const table = (head, rows, empty) => rows.length
+  ? `<table><thead><tr>${head.map((h) => `<th>${h}</th>`).join("")}</tr></thead><tbody>${rows.join("")}</tbody></table>`
+  : `<p class="empty">${empty}</p>`;
+const kpi = (label, value, sub = "", tone = "") =>
+  `<div class="card kpi"><div class="label">${label}</div><div class="value ${tone}">${value}</div>${sub ? `<div class="sub">${sub}</div>` : ""}</div>`;
+
+const ICONS = {
+  chart: '<polyline points="23 6 13.5 15.5 8.5 10.5 1 18"/><polyline points="17 6 23 6 23 12"/>',
+  news: '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/>',
+  target: '<circle cx="12" cy="12" r="10"/><circle cx="12" cy="12" r="6"/><circle cx="12" cy="12" r="2"/>',
+  shield: '<path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>',
+  briefcase: '<rect x="2" y="7" width="20" height="14" rx="2" ry="2"/><path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16"/>',
+  bars: '<line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/>',
+};
+const icon = (k, size = 20) => `<svg width="${size}" height="${size}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[k] || ""}</svg>`;
+
+// What each agent is, as written in app/agents/*.py. Live values (run time, output, errors) come from the backend.
+const AGENTS = {
+  "Market Analyst": { icon: "chart", file: "app/agents/market_analyst.py",
+    role: "Reads simulated price history and scores each symbol's trend from -1 to +1.",
+    impl: "IMPLEMENTED · rule-based Python (moving averages, momentum, volatility). Optional Grok research on request, for display only",
+    input: "Recent simulated prices per symbol from SimulatedMarket.snapshot()" },
+  "News Analyst": { icon: "news", file: "app/agents/news_analyst.py",
+    role: "Adds news / sentiment context per symbol.",
+    impl: "PARTIAL · this project has no news feed; Grok scores only the items you put in data/news.json, on request",
+    input: "Market Analyst reports + news items from data/news.json (user-provided, not verified)" },
+  "Strategy Agent": { icon: "target", file: "app/agents/strategy_agent.py",
+    role: "Turns trend and news scores into BUY / SELL / HOLD / NO TRADE proposals.",
+    impl: "IMPLEMENTED · rule-based thresholds on trend score + News Analyst score. Grok market research is attached for display, never used",
+    input: "Market Analyst reports, News Analyst scores, open positions (+ Grok research, display only)" },
+  "Risk Manager": { icon: "shield", file: "app/agents/risk_manager.py",
+    role: "Approves, rejects or flags each proposal; forces stop-loss and take-profit exits.",
+    impl: "IMPLEMENTED · deterministic rules from .env (daily-loss baseline bug: see Risk & Decisions)",
+    input: "Proposals, positions, prices, equity, cash, start-of-day equity, peak equity" },
+  "Portfolio Manager": { icon: "briefcase", file: "app/agents/portfolio_manager.py",
+    role: "Fills approved orders and forced exits on the paper account.",
+    impl: "IMPLEMENTED · simulated fills at the current simulated price, with a simulated fee",
+    input: "Approved orders, stop-loss / take-profit exits, the paper broker" },
+  "Performance Analyst": { icon: "bars", file: "app/agents/performance_analyst.py",
+    role: "Grades the results: return, win rate, drawdown, profit factor, fees, buy-and-hold.",
+    impl: "IMPLEMENTED · statistics over trades and the in-memory equity curve",
+    input: "Trade history, equity curve, starting cash, buy-and-hold return" },
+};
+const VIEWS = ["overview", "agents", "stocks", "crypto", "markets", "portfolio", "performance", "risk", "decisions", "riskctl", "backtest"];
+const STOCKS = ["SPY", "QQQ", "AAPL", "NVDA", "TSLA"];
+const PAIRS = ["BTC/USD", "ETH/USD", "SOL/USD"];
+let cryptoPair = "BTC/USD", cryptoInterval = 60, crypto = { overview: null, detail: {} }, cryptoLoadedAt = 0, cryptoError = null;
+
+let S = null, disconnected = false, lastOk = null, marketTab = "stock", grokBusy = null;
+let stockSym = "SPY", stocks = { overview: null, detail: {} }, stocksLoadedAt = 0, stocksError = null;
+let D = null, decLoadedAt = 0, decError = null, decBusy = null;
+const decOpen = new Set();  // proposal ids whose detail row is shown, kept across refreshes
+const CHARTS = {};  // chart box id -> geometry + hover index (equity chart, stock chart)
+const newsFromGrok = (s) => String((s.agents.find((a) => a.name === "News Analyst") || {}).status).startsWith("Grok sentiment");
+
+// ---------- derived status (from backend data only) ----------
+function lastRun(s, name) { return (s.agents.find((a) => a.name === name) || {}).last_run; }
+
+function activeError(s) {
+  const e = s.last_error;
+  if (!e) return null;
+  const ref = lastRun(s, e.agent === "Engine" ? "Performance Analyst" : e.agent);  // a later successful run = recovered
+  return ref && ref > e.time ? null : e;
+}
+
+function agentState(a, s) {
+  if (disconnected) return ["UNKNOWN", "", "The dashboard can't reach the simulator, so this status is unknown."];
+  if (!("last_run" in a)) return ["UNKNOWN", "", "The backend does not report run times."];
+  const e = activeError(s);
+  if (e && e.agent === a.name) return ["ERROR", "bad", `Error at ${time(e.time)}: ${e.error}`];
+  if (!a.last_run) return ["NO RUN YET", "", "Has not run since the server started."];
+  if (a.name === "News Analyst") {  // runs once, then again only when Grok research runs or its result expires
+    if (newsFromGrok(s)) return ["AI RESULT", "good", ""];
+    return ["FALLBACK", "warn", String(a.status).startsWith("Grok news analysis failed")
+      ? "The last Grok news request failed, so sentiment is 0 for every symbol."
+      : "No analyzed news, so sentiment is 0 for every symbol and trades use market data only."];
+  }
+  const age = s.server_time - a.last_run;
+  if (age <= s.cycle_seconds * 3 + 2) return ["ACTIVE", "good", ""];
+  return ["STALE", "warn", `Last run ${Math.round(age)}s ago; expected about every ${s.cycle_seconds}s.`];
+}
+
+function agentWarnings(a, s) {
+  const w = [], r = s.risk_status || {};
+  const e = s.last_error;
+  if (e && e.agent === a.name && !activeError(s)) w.push(`Recovered from an error at ${time(e.time)}: ${e.error}`);
+  if (a.name === "Market Analyst") {
+    const n = (s.reports || []).filter((x) => !x.enough_data).length;
+    if (n) w.push(`${n} symbol(s) don't have enough price history yet.`);
+  }
+  if (a.name === "News Analyst") {
+    w.push("This project has no news feed. Only items you put in data/news.json are analyzed (by Grok, on request), and they are not verified.");
+    if (newsFromGrok(s)) w.push("Grok sentiment is opinion, not verified news. It stops counting after 15 minutes.");
+  }
+  if (a.name === "Risk Manager") {
+    if (r.daily_loss_halt) w.push(`Daily loss limit hit (${pct(r.day_change_pct)}): new BUYs are rejected. Known bug: this never resets on a new day.`);
+    if (r.drawdown_halt) w.push(`Max drawdown hit (${pct(-r.drawdown_pct)} from peak): new BUYs are rejected.`);
+    if (!s.running) w.push("Emergency stop is on: new proposals are not reviewed. Stop-loss / take-profit exits still run.");
+  }
+  if (a.name === "Portfolio Manager" && s.pending.length) w.push(`${s.pending.length} BUY proposal(s) waiting for human approval.`);
+  if (a.name === "Performance Analyst") w.push("Max drawdown covers only the in-memory equity window (up to 300 cycles) and restarts with the server.");
+  return w;
+}
+
+function riskLabel(s) {
+  const r = s.risk_status || {};
+  if (disconnected) return ["UNKNOWN", "", "Disconnected"];
+  if (r.daily_loss_halt) return ["NEW BUYS BLOCKED", "bad", "Daily loss limit hit"];
+  if (r.drawdown_halt) return ["NEW BUYS BLOCKED", "bad", "Max drawdown hit"];
+  if (r.open_positions > s.risk.max_open_positions || r.crypto_exposure_pct > s.risk.max_crypto_exposure_pct * 100)
+    return ["LIMIT EXCEEDED", "bad", "Over a position or crypto limit (human approval skips re-checks)"];
+  if (!s.running) return ["STOPPED", "bad", "Emergency stop on"];
+  if (!isNum(r.equity)) return ["UNKNOWN", "", "No risk data"];
+  return ["NORMAL", "good", "Within all limits"];
+}
+
+const bugCallout = (s) => {
+  const r = s.risk_status || {};
+  return `<p class="callout"><b>KNOWN BUG (not fixed yet): the daily loss limit never resets on a new day.</b>
+    The Risk Manager compares equity with <code>day_start_equity</code>, but that value is set only when the account is created or reset
+    (<code>app/broker.py:23</code>, <code>:56</code>). It is not updated when the date changes and not restored after a restart.
+    In practice the rule works as “${((s.risk.max_daily_loss_pct || 0) * 100).toFixed(1)}% loss since start or reset”. Once it triggers with no open positions,
+    new BUYs stay rejected until you press <b>Reset account</b>. Current baseline: <b>${money(r.day_start_equity)}</b>,
+    change vs baseline: <b class="${cls(r.day_change_pct)}">${pct(r.day_change_pct)}</b>.</p>`;
+};
+
+// ---------- header + alerts (every view) ----------
+function renderHeader(s) {
+  $("connPill").textContent = disconnected ? "DISCONNECTED" : s ? "CONNECTED" : "CONNECTING…";
+  $("connPill").className = "pill " + (disconnected ? "bad" : "good");
+  if (!s) return;
+  const gs = s.grok_status || {};
+  $("grokPill").textContent = "GROK: " + (gs.state || "UNKNOWN");
+  $("grokPill").className = "pill " + ({ CONNECTED: "good", ERROR: "bad" }[gs.state] || "");
+  $("runPill").textContent = s.running ? "TRADING ON" : "EMERGENCY STOP";
+  $("runPill").className = "pill " + (s.running ? "good" : "bad");
+  $("cyclePill").textContent = `CYCLE ${s.cycle} · ${time(s.server_time)}`;
+  for (const id of ["stopBtnTop", "stopBtn"]) {
+    $(id).textContent = s.running ? "Emergency stop" : "Resume trading";
+    $(id).setAttribute("aria-pressed", String(!s.running));
+  }
+}
+
+function renderAlerts(s) {
+  const out = [];
+  if (disconnected) out.push(`<b>DISCONNECTED.</b> Can't reach the simulator. ${s ? `Everything below is the last data received at ${time(lastOk / 1000)}.` : ""} Start it again with <code>uvicorn app.main:app --reload</code>.`);
+  if (s) {
+    const r = s.risk_status || {}, e = activeError(s), g = s.grok_status || {};
+    if (e) out.push(`<b>ERROR in ${esc(e.agent)}</b> at ${time(e.time)}: ${esc(e.error)}`);
+    if (g.state === "ERROR" && g.last_error) out.push(`<b>GROK ERROR (${esc(g.last_error.kind)})</b> at ${time(g.last_error.time)}: ${esc(String(g.last_error.message).replace(/\.$/, ""))}. The team keeps running on its rules. <a href="#agents">Details</a>`);
+    if (r.daily_loss_halt) out.push(`<b>NEW BUYS BLOCKED: daily loss limit.</b> Equity is ${pct(r.day_change_pct)} vs the baseline ${money(r.day_start_equity)} (limit -${(s.risk.max_daily_loss_pct * 100).toFixed(1)}%). <b>Known bug:</b> the baseline never resets on a new day, so this stays until you press Reset account. <a href="#risk">Details</a>`);
+    if (r.drawdown_halt) out.push(`<b>NEW BUYS BLOCKED: max drawdown.</b> Equity is ${pct(-r.drawdown_pct)} from its peak ${money(r.peak_equity)} (limit -${(s.risk.max_drawdown_pct * 100).toFixed(1)}%).`);
+    if (r.open_positions > s.risk.max_open_positions) out.push(`<b>LIMIT EXCEEDED: ${r.open_positions} open positions</b> (limit ${s.risk.max_open_positions}). Human approvals are not re-checked by the Risk Manager (known bug). <a href="#risk">Details</a>`);
+    if (r.crypto_exposure_pct > s.risk.max_crypto_exposure_pct * 100) out.push(`<b>LIMIT EXCEEDED: crypto exposure ${Number(r.crypto_exposure_pct).toFixed(2)}%</b> at cost (limit ${(s.risk.max_crypto_exposure_pct * 100).toFixed(0)}%). Human approvals are not re-checked by the Risk Manager (known bug).`);
+    if (!s.running) out.push("<b>EMERGENCY STOP ON.</b> New trades are paused. Stop-loss and take-profit exits still run.");
+  }
+  const html = out.map((t) => `<div class="alert">${t}</div>`).join("");
+  if (html !== renderAlerts.last) { $("alerts").innerHTML = html; renderAlerts.last = html; }  // aria-live: announce changes only
+}
+
+// ---------- 1. overview ----------
+function renderOverview(s) {
+  const st = s.stats || {}, r = s.risk_status || {};
+  const pnl = isNum(st.equity) ? st.equity - s.starting_cash : null;
+  const [label, tone, why] = riskLabel(s);
+  $("ovKpis").innerHTML = [
+    kpi("Total equity (simulated)", money(st.equity), `Started at ${money(s.starting_cash)}`),
+    kpi("Cash (simulated)", money(s.cash)),
+    kpi("Total P&amp;L", money(pnl), `${pct(st.total_return_pct)} · after all fees`, cls(pnl)),
+    kpi("Max drawdown", dd(st.max_drawdown_pct), `In-memory window. From peak now: ${dd(r.drawdown_pct)}`, st.max_drawdown_pct > 0 ? "down" : ""),
+    kpi("Risk status", `<span class="badge ${tone}">${label}</span>`, why),
+    kpi("Open positions", isNum(r.open_positions) ? `${r.open_positions} / ${s.risk.max_open_positions}` : NA),
+  ].join("");
+  $("ovTrades").innerHTML = table(["Time", "Side", "Symbol", "Qty", "Price", "P&amp;L"],
+    s.trades.slice(0, 8).map((t) => `<tr><td>${time(t.time)}</td><td class="${t.side === "BUY" ? "up" : "down"}">${t.side}</td><td>${esc(t.symbol)}</td><td>${t.qty}</td><td>${money(t.price)}</td><td class="${cls(t.pnl)}">${t.pnl == null ? "–" : money(t.pnl)}</td></tr>`),
+    "No simulated trades yet.");
+  $("ovAgents").innerHTML = s.agents.map((a) => {
+    const [l, t] = agentState(a, s);
+    return `<a class="mini-agent" href="#agents"><span class="icon">${icon((AGENTS[a.name] || {}).icon, 16)}</span><span class="name">${esc(a.name)}</span><span class="badge ${t}">${l}</span></a>`;
+  }).join("");
+  $("ovBug").innerHTML = bugCallout(s);
+}
+
+// ---------- 2. agents ----------
+function usageText(u) {  // xAI usage object; cost_in_usd_ticks: 10,000,000,000 ticks = $1 (docs.x.ai)
+  if (!u) return NA;
+  const reasoning = (u.completion_tokens_details || {}).reasoning_tokens;
+  return `prompt ${u.prompt_tokens ?? NA} · completion ${u.completion_tokens ?? NA}${isNum(reasoning) ? ` (reasoning ${reasoning})` : ""} · total ${u.total_tokens ?? NA}` +
+    (isNum(u.cost_in_usd_ticks) ? ` · cost $${(u.cost_in_usd_ticks / 1e10).toFixed(6)}` : "");
+}
+
+function renderGrok(s) {
+  const g = s.grok_status || {}, r = s.ai_research, e = g.last_error, off = g.state === "OFFLINE DEMO";
+  const keepOpen = $("grokInputs") && $("grokInputs").open;
+  const btn = (kind, label) => `<button data-action="grok-${kind}" ${off || grokBusy ? "disabled" : ""}>${grokBusy === kind ? "Working…" : label}</button>`;
+  $("grokCard").innerHTML = `<h3>xAI Grok connection · research only</h3>
+    <div class="control"><div>
+      <p style="margin:0;color:var(--text)"><span class="badge ${{ CONNECTED: "good", ERROR: "bad" }[g.state] || ""}">${esc(g.state || "UNKNOWN")}</span>
+      ${off ? '<span class="muted">No XAI_API_KEY in .env, so no AI is called. Add a key and restart to enable.</span>' : `Model <code>${esc(g.model)}</code>`}</p>
+      </div><div class="status">${btn("test", "Test connection (1 request)")} ${btn("research", "Run Grok research (1–2 requests)")}</div></div>
+    <dl class="facts" style="margin-top:12px">
+      <dt>Last success</dt><dd class="out">${g.last_success ? time(g.last_success) + ago(g.last_success, s) : "Never"}</dd>
+      <dt>Last attempt</dt><dd class="out">${g.last_attempt ? time(g.last_attempt) : "None yet"}</dd>
+      <dt>Requests sent</dt><dd class="out">${g.requests ?? NA} (failed: ${g.failures ?? NA})</dd>
+      <dt>Answered by</dt><dd class="out">${esc(g.last_response_model || NA)}</dd>
+      <dt>Last token usage</dt><dd class="out">${usageText(g.last_usage)}</dd>
+      <dt>Last error</dt><dd>${e ? `<span class="bad">${esc(e.kind)}${e.http_status ? " · HTTP " + e.http_status : ""}</span> at ${time(e.time)}: ${esc(e.message)}${e.retry_after ? " · retry after " + esc(e.retry_after) + "s" : ""}` : '<span class="muted">None</span>'}</dd>
+      <dt>Automatic calls</dt><dd>${s.grok_auto_seconds ? `ON: research every ${s.grok_auto_seconds}s (GROK_AUTO_RESEARCH_SECONDS)` : "OFF (default). Grok runs only when you press a button."}</dd>
+      <dt>Latest research</dt><dd>${r ? `${time(r.time)} · <code>${esc(r.model)}</code> · ${esc(r.summary)}` : '<span class="muted">None yet</span>'}</dd>
+    </dl>
+    ${r ? `<details id="grokInputs"${keepOpen ? " open" : ""}><summary>Data sent to Grok for that research</summary><pre class="out">${esc(JSON.stringify(r.inputs, null, 2))}</pre></details>` : ""}
+    <p class="note">Grok only returns research. It cannot place, size or approve orders, change risk limits, or skip the Risk Manager or human approval.
+      Its market research is shown but not used in trade decisions. It sees simulated prices and has no verified real-time market or news data.
+      Each request may cost money on your xAI account.</p>`;
+}
+
+function renderAgents(s) {
+  renderGrok(s);
+  const live = (s.grok_status || {}).state !== "OFFLINE DEMO", r = s.ai_research;
+  $("agentCards").innerHTML = s.agents.map((a) => {
+    const m = AGENTS[a.name] || { role: "UNKNOWN", impl: "UNKNOWN", input: "UNKNOWN", file: "" };
+    const [label, tone, why] = agentState(a, s);
+    const issues = [why, ...agentWarnings(a, s)].filter(Boolean);
+    const ai = {
+      "Market Analyst": r ? `YES, research only: Grok (${r.model}) read the simulated indicators at ${time(r.time)}. Not used for trades.`
+        : live ? "Not yet: Grok research runs only when you press the button. Decisions use Python rules." : "NO: Grok is off (no API key). Python rules only.",
+      "News Analyst": newsFromGrok(s) ? "YES: Grok scored the news items you provided (opinion)."
+        : live ? "NO: no Grok news analysis is active (needs items in data/news.json + a research run)." : "NO: Grok is off (no API key).",
+    }[a.name] || "NO: plain Python rules";
+    const run = !("last_run" in a) ? "UNKNOWN" : a.last_run ? time(a.last_run) + ago(a.last_run, s) : "No run yet";
+    return `<article class="card">
+      <div class="agent-head"><span class="icon">${icon(m.icon)}</span><div><h3>${esc(a.name)}</h3><small>${esc(m.file)}</small></div><span class="badge ${tone}">${label}</span></div>
+      <dl class="facts">
+        <dt>Role</dt><dd>${esc(m.role)}</dd>
+        <dt>Implementation</dt><dd>${esc(m.impl)}</dd>
+        <dt>Uses AI</dt><dd>${esc(ai)}</dd>
+        <dt>Input</dt><dd>${esc(m.input)}</dd>
+        <dt>Last run</dt><dd class="out">${run}</dd>
+        <dt>Latest message</dt><dd class="out">${esc(a.status)}</dd>
+        <dt>Errors &amp; warnings</dt><dd>${issues.length ? `<ul class="warn">${issues.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : '<span class="muted">None</span>'}</dd>
+      </dl></article>`;
+  }).join("");
+  $("feed").innerHTML = s.feed.map((f) => `<div><time>${time(f.time)}</time><span class="who">${esc(f.agent)}</span>${esc(f.message)}</div>`).join("") || '<p class="empty">No messages yet.</p>';
+}
+
+// ---------- 3. markets ----------
+function spark(values, up) {
+  if (!values || values.length < 2) return "";
+  const w = 90, h = 24, min = Math.min(...values), rng = Math.max(...values) - min || 1;
+  const pts = values.map((v, i) => `${(i / (values.length - 1) * w).toFixed(1)},${(h - 2 - (v - min) / rng * (h - 4)).toFixed(1)}`).join(" ");
+  return `<svg class="spark" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-hidden="true"><polyline class="${up ? "up" : "down"}" points="${pts}"/></svg>`;
+}
+
+function renderMarkets(s) {
+  document.querySelectorAll("[data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === marketTab)));
+  const name = { stock: "Stocks & ETFs", crypto: "Crypto", prediction: "Prediction market" }[marketTab];
+  const rows = Object.entries(s.market).filter(([, d]) => d.type === marketTab);
+  const reports = Object.fromEntries((s.reports || []).map((r) => [r.symbol, r]));
+  const props = Object.fromEntries((s.proposals || []).map((p) => [p.symbol, p]));
+  const src = `<div class="source">
+    <span>Source: <b>offline simulator</b> (<code>app/market.py</code>, random walk), ${esc(s.data_source)}</span>
+    <span>Real market feed: <b class="bad">NOT CONNECTED</b></span>
+    <span>News feed: <b class="bad">NOT CONNECTED</b> (only items you provide in data/news.json)</span>
+    <span>Updated: <b>${time(s.market_updated)}</b>${ago(s.market_updated, s)}</span>
+    <span>Grok research: <b>${s.ai_research ? time(s.ai_research.time) : "not run"}</b> (opinion on simulated data, not used for trades)</span></div>`;
+  const ai = (s.ai_research || {}).analyses || {}, newsOn = newsFromGrok(s);
+  if (!rows.length) {
+    $("marketBody").innerHTML = src + `<p class="na">DATA NOT AVAILABLE</p><p class="note">No ${esc(name)} symbols are on the watchlist (WATCHLIST in .env), so there is no data for this market.</p>`;
+    return;
+  }
+  $("marketBody").innerHTML = src + table(
+    ["Symbol", "Simulated price", "Last tick", "120-tick chg", "Trend (Market Analyst)", "Momentum", "Volatility", "News score", "Strategy", "Grok view (research only)", "Recent"],
+    rows.map(([sym, d]) => {
+      const r = reports[sym] || {}, p = props[sym] || {}, ns = (s.news_scores || {})[sym];
+      const trend = r.enough_data ? `<span class="${r.trend === "up" ? "up" : "down"}">${r.trend === "up" ? "▲ up" : "▼ down"}</span> ${Number(r.trend_score).toFixed(2)}` : NA;
+      return `<tr><td>${esc(sym)}${d.type === "prediction" ? `<br><span class="muted">${esc(d.label)}</span>` : ""}</td>
+        <td>${price(d.type, d.price)}</td><td class="${cls(d.change_pct)}">${pct(d.change_pct)}</td><td class="${cls(d.session_change_pct)}">${pct(d.session_change_pct)}</td>
+        <td>${trend}</td><td class="${cls(r.momentum_pct)}">${r.enough_data ? pct(r.momentum_pct) : NA}</td><td>${r.enough_data ? Number(r.volatility_pct).toFixed(3) + "%" : NA}</td>
+        <td>${newsOn && isNum(ns) ? Number(ns).toFixed(2) : `<span class="muted" title="No analyzed news">${NA}</span>`}</td>
+        <td>${p.action ? `${esc(p.action)} <span class="muted">${p.confidence}</span>` : NA}</td>
+        <td class="text">${ai[sym] ? `<span style="color:var(--text)">${esc(ai[sym].view)} ${ai[sym].confidence}</span><br>${esc(ai[sym].rationale)}` : NA}</td>
+        <td>${spark(d.history, d.session_change_pct >= 0)}</td></tr>`;
+    }), "");
+}
+
+// ---------- 4. portfolio ----------
+function renderPortfolio(s) {
+  const st = s.stats || {};
+  const value = s.positions.reduce((t, p) => t + p.value, 0), upnl = s.positions.reduce((t, p) => t + p.pnl, 0);
+  $("pfKpis").innerHTML = [
+    kpi("Cash (simulated)", money(s.cash)),
+    kpi("Positions value", money(value), `${s.positions.length} open`),
+    kpi("Equity", money(st.equity), "Cash + positions"),
+    kpi("Unrealized P&amp;L", s.positions.length ? money(upnl) : NA, "Open positions, before exit fees", cls(upnl)),
+    kpi("Fees paid", money(st.fees_paid), `Simulated ${((s.risk.fee_pct || 0) * 100).toFixed(2)}% per fill`),
+  ].join("");
+  $("positions").innerHTML = table(["Symbol", "Market", "Qty", "Avg entry", "Simulated price", "Value", "Unrealized P&amp;L"],
+    s.positions.map((p) => `<tr><td>${esc(p.symbol)}</td><td>${esc(p.type)}</td><td>${qty(p.type, p.qty)}</td><td>${price(p.type, p.avg_price)}</td><td>${price(p.type, p.price)}</td><td>${money(p.value)}</td><td class="${cls(p.pnl)}">${money(p.pnl)} (${pct(p.pnl_pct)})</td></tr>`),
+    "No open positions.");
+  $("trades").innerHTML = table(["Time", "Side", "Symbol", "Qty", "Price", "Fee", "Realized P&amp;L", "By", "Reason"],
+    s.trades.map((t) => `<tr><td>${time(t.time)}</td><td class="${t.side === "BUY" ? "up" : "down"}">${t.side}</td><td>${esc(t.symbol)}</td><td>${t.qty}</td><td>${money(t.price)}</td><td>${money(t.fee)}</td><td class="${cls(t.pnl)}">${t.pnl == null ? "–" : money(t.pnl)}</td><td>${esc(t.agent)}</td><td class="text">${esc(t.reason)}</td></tr>`),
+    "No simulated trades yet.") + (s.trades.length ? `<p class="note">Showing the latest ${s.trades.length} of ${s.trade_count} simulated fills.</p>` : "");
+}
+
+// ---------- 5. performance ----------
+// Line chart with crosshair + tooltip, shared by the equity chart and the stock chart.
+// series: [{ cls, values }] where null values (e.g. SMA warm-up) are skipped; labels: x-axis label per point.
+function lineChart(id, { labels, series, baseline, tooltip, fmtY, aria, marks }) {
+  const box = $(id), n = labels.length;
+  if (n < 2) { box.innerHTML = '<p class="empty">Not enough data yet.</p>'; delete CHARTS[id]; chartHover(id); return; }
+  const W = Math.max(280, box.parentElement.clientWidth || 800), H = 260, L = 84, R = 14, T = 14, B = 26;
+  const vals = series.flatMap((sr) => sr.values.filter(isNum)).concat(baseline ? [baseline.value] : []);
+  let min = Math.min(...vals), max = Math.max(...vals);
+  const pad = (max - min) * 0.08 || Math.abs(max) * 0.01 || 1; min -= pad; max += pad;
+  const x = (i) => L + (i / (n - 1)) * (W - L - R), y = (v) => T + ((max - v) / (max - min)) * (H - T - B);
+  const ticks = [0, 1, 2, 3].map((k) => min + pad + (k / 3) * (max - min - 2 * pad));
+  CHARTS[id] = { x, y, n, L, R, T, W, series, tooltip, hover: CHARTS[id] ? CHARTS[id].hover : null };
+  box.innerHTML = `<svg width="${W}" height="${H}" role="img" aria-label="${esc(aria)}">
+    <g class="axis">${ticks.map((v) => `<line class="grid-line" x1="${L}" x2="${W - R}" y1="${y(v)}" y2="${y(v)}"/><text x="${L - 8}" y="${y(v) + 4}" text-anchor="end">${fmtY(v)}</text>`).join("")}
+      <text x="${L}" y="${H - 6}">${esc(labels[0])}</text><text x="${W - R}" y="${H - 6}" text-anchor="end">${esc(labels[n - 1])}</text></g>
+    ${baseline ? `<line class="start-line" x1="${L}" x2="${W - R}" y1="${y(baseline.value)}" y2="${y(baseline.value)}"/><text class="start-label" x="${W - R - 4}" y="${y(baseline.value) - 6}" text-anchor="end">${esc(baseline.label)}</text>` : ""}
+    ${series.map((sr) => `<polyline class="line ${sr.cls}" points="${sr.values.map((v, i) => isNum(v) ? `${x(i).toFixed(1)},${y(v).toFixed(1)}` : "").filter(Boolean).join(" ")}"/>`).join("")}
+    ${(marks || []).map((m) => `<circle class="mk ${m.cls}" cx="${x(m.i).toFixed(1)}" cy="${y(m.v).toFixed(1)}" r="4"><title>${esc(m.label)}</title></circle>`).join("")}
+    <line class="xh" y1="${T}" y2="${H - B}" visibility="hidden"/>${series.map((sr) => `<circle class="xd ${sr.cls}" r="4.5" visibility="hidden"/>`).join("")}</svg>`;
+  chartHover(id);
+}
+
+function chartHover(id) {
+  const c = CHARTS[id], tip = $(id).parentElement.querySelector(".tip"), svg = $(id).querySelector("svg");
+  if (!c || c.hover == null || !svg) { tip.hidden = true; if (svg) svg.querySelectorAll(".xh, .xd").forEach((el) => el.setAttribute("visibility", "hidden")); return; }
+  const i = Math.min(c.hover, c.n - 1), cx = c.x(i), xh = svg.querySelector(".xh");
+  xh.setAttribute("x1", cx); xh.setAttribute("x2", cx); xh.setAttribute("visibility", "visible");
+  svg.querySelectorAll(".xd").forEach((dot, k) => {
+    const v = c.series[k].values[i];
+    dot.setAttribute("visibility", isNum(v) ? "visible" : "hidden");
+    if (isNum(v)) { dot.setAttribute("cx", cx); dot.setAttribute("cy", c.y(v)); }
+  });
+  tip.innerHTML = c.tooltip(i); tip.hidden = false;
+  const first = c.series.map((sr) => sr.values[i]).find(isNum), cy = isNum(first) ? c.y(first) : c.T;
+  const left = cx + 14 + tip.offsetWidth > c.W ? cx - 14 - tip.offsetWidth : cx + 14;
+  tip.style.left = Math.max(0, left) + "px"; tip.style.top = Math.max(0, cy - 40) + "px";
+}
+
+function attachHover(id) {
+  const wrap = $(id).parentElement;
+  wrap.addEventListener("pointermove", (ev) => {
+    const c = CHARTS[id];
+    if (!c) return;
+    const px = ev.clientX - wrap.getBoundingClientRect().left;
+    c.hover = Math.max(0, Math.min(c.n - 1, Math.round((px - c.L) / (c.W - c.L - c.R) * (c.n - 1))));
+    chartHover(id);
+  });
+  wrap.addEventListener("pointerleave", () => { if (CHARTS[id]) CHARTS[id].hover = null; chartHover(id); });
+}
+
+function renderChart(s) {
+  const pts = s.equity_curve || [], start = s.starting_cash;
+  const tone = pts.length && pts[pts.length - 1].equity >= start ? "up" : "down";
+  lineChart("chart", {
+    labels: pts.map((p) => time(p.time)),
+    series: [{ cls: tone, values: pts.map((p) => p.equity) }],
+    baseline: { value: start, label: `Start ${money(start)}` },
+    fmtY: (v) => "$" + Math.round(v).toLocaleString(),
+    aria: `Simulated equity over the last ${pts.length} cycles; starting cash ${money(start)}`,
+    tooltip: (i) => {
+      const p = pts[i], d = p.equity - start;
+      return `${time(p.time)}<br>${money(p.equity)} <span class="${cls(d)}">${pct(d / start * 100)}</span>`;
+    },
+  });
+  if ($("eqDetails").open) {
+    $("eqTable").innerHTML = table(["Time", "Equity", "vs start"],
+      pts.slice().reverse().map((p) => `<tr><td>${time(p.time)}</td><td>${money(p.equity)}</td><td class="${cls(p.equity - start)}">${pct((p.equity / start - 1) * 100)}</td></tr>`), "");
+  }
+}
+
+
+function renderPerformance(s) {
+  renderChart(s);
+  const st = s.stats || {}, pnl = isNum(st.equity) ? st.equity - s.starting_cash : null;
+  const perf = s.agents.find((a) => a.name === "Performance Analyst") || {};
+  $("perfKpis").innerHTML = [
+    kpi("Total return", pct(st.total_return_pct), "Account equity basis, after all fees", cls(st.total_return_pct)),
+    kpi("Total P&amp;L", money(pnl), "Equity minus starting cash", cls(pnl)),
+    kpi("Realized P&amp;L", money(st.realized_pnl), "Closed trades, after sell fees", cls(st.realized_pnl)),
+    kpi("Max drawdown", dd(st.max_drawdown_pct), "In-memory window only", st.max_drawdown_pct > 0 ? "down" : ""),
+    kpi("Closed trades", st.closed_trades ?? NA, `${s.trade_count} fills in total (buys + sells)`),
+    kpi("Win rate", isNum(st.win_rate_pct) ? st.win_rate_pct + "%" : NA, st.closed_trades ? "" : "N/A until a trade closes"),
+    kpi("Profit factor", st.profit_factor ?? NA, isNum(st.profit_factor) ? "Gross wins / gross losses" : "N/A until there is a losing trade"),
+    kpi("Fees paid", money(st.fees_paid)),
+    kpi("Buy &amp; hold", pct(st.benchmark_return_pct), "Equal-weight watchlist since the server started", cls(st.benchmark_return_pct)),
+  ].join("");
+  const mins = Math.round(300 * s.cycle_seconds / 60);
+  $("perfNotes").innerHTML = [
+    `Performance Analyst says: <span class="out">${esc(perf.status || NA)}</span>`,
+    `The chart and max drawdown use the in-memory equity curve: up to the last 300 cycles (about ${mins} minutes at ${s.cycle_seconds}s per cycle). It starts empty when the server restarts.`,
+    "Realized P&amp;L subtracts the sell fee only; buy fees are not in it (<code>app/broker.py:93</code>). Total return uses account equity, so it includes every fee.",
+    "Simulated results on random demo data say nothing about real-market profits.",
+  ].map((t) => `<li>${t}</li>`).join("");
+}
+
+// ---------- 6. risk & decisions ----------
+function meter(label, valueText, used, limitText) {
+  const p = Math.max(0, Math.min(1, used || 0));
+  return `<div class="meter-row"><div class="meter-head"><span>${label}</span><span>${valueText} <span class="muted">/ ${limitText}</span></span></div>
+    <div class="meter" role="meter" aria-label="${label}" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(p * 100)}"><i class="${p >= 1 ? "bad" : ""}" style="width:${(p * 100).toFixed(1)}%"></i></div></div>`;
+}
+
+function renderRisk(s) {
+  const r = s.risk_status || {}, k = s.risk || {};
+  const [label, tone, why] = riskLabel(s);
+  $("riskBug").innerHTML = bugCallout(s);
+  $("stopText").textContent = s.running
+    ? "Trading is ON. Press to stop new trades right away. Stop-loss and take-profit exits keep running."
+    : "STOPPED: no new trades are reviewed or filled. Stop-loss and take-profit exits keep running.";
+  $("approvalBtn").textContent = "Human approval: " + (s.require_approval ? "ON" : "OFF");
+  $("approvalBtn").setAttribute("aria-pressed", String(s.require_approval));
+  $("approvalText").textContent = s.require_approval
+    ? "ON: every BUY the Risk Manager approves waits for you below."
+    : `OFF: approved BUYs fill automatically. Weaker setups (confidence below ${k.review_below_confidence}) still wait for you.`;
+  $("riskStatus").innerHTML = `<p style="margin:0 0 12px"><span class="badge ${tone}">${label}</span> <span class="muted">${why}</span></p>` +
+    meter(`Daily loss vs baseline ${money(r.day_start_equity)} <span class="bad">(baseline bug)</span>`, `<span class="${cls(r.day_change_pct)}">${pct(r.day_change_pct)}</span>`,
+      Math.max(0, -r.day_change_pct) / (k.max_daily_loss_pct * 100), `-${(k.max_daily_loss_pct * 100).toFixed(1)}%`) +
+    meter(`Drawdown from peak ${money(r.peak_equity)}`, dd(r.drawdown_pct), r.drawdown_pct / (k.max_drawdown_pct * 100), `-${(k.max_drawdown_pct * 100).toFixed(1)}%`) +
+    meter("Open positions", r.open_positions, r.open_positions / k.max_open_positions, k.max_open_positions) +
+    meter("Crypto exposure (at cost)", isNum(r.crypto_exposure_pct) ? Number(r.crypto_exposure_pct).toFixed(2) + "%" : NA, r.crypto_exposure_pct / (k.max_crypto_exposure_pct * 100), `${(k.max_crypto_exposure_pct * 100).toFixed(0)}%`);
+
+  $("pending").innerHTML = table(["Symbol", "Market", "Action", "Qty", "Price then", "Conf.", "Verdict", "Why", ""],
+    s.pending.map((p) => `<tr><td>${esc(p.symbol)}</td><td>${esc(p.type)}</td><td class="up">${esc(p.action)}</td><td>${qty(p.type, p.qty)}</td><td>${price(p.type, p.price)}</td><td>${p.confidence}</td>
+      <td>${esc(p.verdict)}</td><td class="text">${esc(p.reason)}</td>
+      <td><button class="btn-sm approve" data-decide="approve" data-id="${esc(p.id)}">Approve</button> <button class="btn-sm reject" data-decide="reject" data-id="${esc(p.id)}">Reject</button></td></tr>`),
+    s.require_approval ? "Nothing waiting. New BUY proposals the Risk Manager approves will show here." : "Nothing waiting. Human approval is OFF, so only weaker setups (NEEDS REVIEW) wait here.");
+  $("approvalNote").innerHTML = "What approval covers (<code>app/engine.py:110-152</code>): only BUY proposals wait here, and they expire after 5 minutes. " +
+    "SELL proposals and stop-loss / take-profit exits run automatically. REJECTED proposals never reach you. " +
+    "<b class='bad'>KNOWN BUG: approving does not re-run the Risk Manager.</b> It fills the original quantity at the current simulated price if there is enough cash, " +
+    "so the max-positions and crypto-exposure limits are not re-checked. An offline test approved 9 waiting BUYs and ended with 7 positions (limit 5) and 45.7% crypto (limit 30%)." +
+    (s.pending.length && r.open_positions + s.pending.length > k.max_open_positions
+      ? ` <b class='bad'>Right now: approving all ${s.pending.length} would mean ${r.open_positions + s.pending.length} positions (limit ${k.max_open_positions}).</b>` : "");
+
+  const actionCls = (a) => a === "BUY" ? "up" : a === "SELL" ? "down" : "muted";
+  $("proposals").innerHTML = table(["Symbol", "Action", "Conf.", "Reason", "Rule inputs (decide)", "Grok research (not used)"],
+    (s.proposals || []).map((p) => `<tr><td>${esc(p.symbol)}</td><td class="${actionCls(p.action)}">${esc(p.action)}</td><td>${p.confidence}</td><td class="text">${esc(p.reason)}</td>
+      <td>${p.inputs ? `trend ${p.inputs.trend_score} · news ${p.inputs.news_score}` : NA}</td>
+      <td>${p.ai_research ? `${esc(p.ai_research.view)} ${p.ai_research.confidence}` : NA}</td></tr>`),
+    "No proposals yet.");
+  const pctx = (v, sign = "") => isNum(v) ? sign + (v * 100).toFixed(1) + "%" : NA;
+  $("limits").innerHTML = table(["Rule", "Setting"], [
+    ["Max size per position", `${pctx(k.max_position_pct)} of equity (prediction markets: half)`],
+    ["Max open positions", k.max_open_positions],
+    ["Stop-loss", pctx(k.stop_loss_pct, "-")],
+    ["Take-profit", pctx(k.take_profit_pct, "+")],
+    ["Daily loss limit", `${pctx(k.max_daily_loss_pct, "-")} <span class="bad">(never resets daily: bug)</span>`],
+    ["Max drawdown", `${pctx(k.max_drawdown_pct, "-")} from peak`],
+    ["Crypto exposure cap", `${pctx(k.max_crypto_exposure_pct)} of equity, at cost`],
+    ["Total exposure cap", '<span class="bad">NOT IMPLEMENTED</span>'],
+    ["Needs human review below", `confidence ${k.review_below_confidence}`],
+    ["Simulated fee", `${isNum(k.fee_pct) ? (k.fee_pct * 100).toFixed(2) + "%" : NA} per fill`],
+  ].map(([a, b]) => `<tr><td class="text" style="color:var(--text)">${a}</td><td>${b}</td></tr>`), "");
+  $("risklog").innerHTML = table(["Time", "Proposal", "Verdict", "Conf.", "Note"],
+    s.risk_log.map((r) => `<tr><td>${time(r.time)}</td><td>${esc(r.action)} ${esc(r.symbol)}</td><td class="${r.verdict === "APPROVED" ? "up" : "down"}">${esc(r.verdict)}</td><td>${r.confidence}</td><td class="text">${esc(r.risk_note)}</td></tr>`),
+    "No proposals reviewed yet.");
+}
+
+// ---------- 3a. stocks (real historical data, read-only) ----------
+async function loadStocks() {
+  stocksLoadedAt = Date.now();
+  const sym = stockSym;
+  try {
+    const [o, d] = await Promise.all([fetch("/api/stocks", { cache: "no-store" }), fetch(`/api/stocks/${sym}`, { cache: "no-store" })]);
+    if (!o.ok || !d.ok) throw new Error("HTTP");
+    stocks.overview = await o.json(); stocks.detail[sym] = await d.json(); stocksError = null;
+  } catch (e) { stocksError = "Could not load stock data from the server."; }
+  if (currentView() === "stocks") renderStocks();
+}
+
+function renderStocks() {
+  const ov = stocks.overview, d = stocks.detail[stockSym];
+  const line = (sym) => ((ov && ov.symbols.find((x) => x.symbol === sym)) || {});
+  const tone = (status) => !status || status === "DATA UNAVAILABLE" ? "" : status.startsWith("REAL") ? "good" : "warn";
+  $("stockTabs").innerHTML = STOCKS.map((sym) => {
+    const o = line(sym);
+    return `<button role="tab" data-stock="${sym}" aria-selected="${sym === stockSym}">${sym} <span class="badge ${tone(o.status)}">${o.rows ? o.rows + " days" : "no data"}</span></button>`;
+  }).join("");
+  const show = (has) => { $("stockChartBox").hidden = !has; $("stockData").hidden = !has; };
+  if (stocksError || !d) {
+    show(false); $("stockLog").innerHTML = "";
+    $("stockHead").innerHTML = stocksError ? `<p class="na">DATA UNAVAILABLE</p><p class="note">${esc(stocksError)}</p>` : '<p class="empty">Loading…</p>';
+    return;
+  }
+  $("stockLog").innerHTML = table(["Time (UTC)", "Source", "Status", "Received", "New", "Same", "Conflicts", "Rejected", "Message"],
+    d.log.map((l) => `<tr><td>${esc(l.time.replace("T", " ").slice(0, 19))}</td><td>${esc(l.origin)} · ${esc(l.provider)}</td>
+      <td class="${l.status === "OK" ? "up" : l.status === "SKIPPED" ? "muted" : "down"}">${esc(l.status)}</td>
+      <td>${l.received ?? "–"}</td><td>${l.inserted ?? "–"}</td><td>${l.unchanged ?? "–"}</td><td>${l.conflicts ?? "–"}</td><td>${l.rejected ?? "–"}</td>
+      <td class="text">${esc(l.message || "")}</td></tr>`),
+    "No fetch or import attempts recorded for this symbol yet.");
+  const head = `<div class="source">
+      <span><span class="badge ${d.rows ? tone(d.status) : "bad"}">${esc(d.status)}</span></span>
+      <span>Provider: <b>${esc(d.providers.join(", ") || NA)}</b>${d.origins.length ? ` via ${esc(d.origins.join(" + "))}` : ""}</span>
+      <span>Data type: <b>${esc(d.data_type || NA)}</b> · Interval: <b>Daily</b></span>
+      <span>Bars: <b>${d.rows}</b>${d.rows ? ` (${esc(d.first)} → ${esc(d.last)})` : ""}</span>
+      <span>Latest bar: <b>${esc(d.last || NA)}</b> · last completed US session: <b>${esc(d.last_completed_session)}</b></span>
+      <span>Collected: <b>${d.last_collected ? esc(d.last_collected.replace("T", " ").slice(0, 19)) + " UTC" : NA}</b></span></div>`;
+  const warnings = d.warnings.length ? `<ul class="warn" style="margin:0 0 12px">${d.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : "";
+  if (!d.rows) {
+    show(false);
+    $("stockHead").innerHTML = head + `<p class="na">DATA UNAVAILABLE</p><p class="note">No real daily bars are stored for ${esc(stockSym)}, so nothing is drawn: this screen never shows simulated prices.<br>
+      Fetch from Alpha Vantage (1 free request): <code>python -m app.stockdata fetch ${esc(stockSym)}</code>${ov && ov.api_key_set ? "" : " (add ALPHAVANTAGE_API_KEY to .env first)"}<br>
+      Or import a CSV you obtained legally: <code>python -m app.stockdata import-csv FILE.csv --symbol ${esc(stockSym)}</code></p>`;
+    return;
+  }
+  show(true);
+  $("stockHead").innerHTML = head + `<p class="note" style="margin:0 0 10px">${esc(d.note)}</p>` + warnings;
+  const bars = d.bars, fmt = (v) => isNum(v) ? "$" + Number(v).toFixed(2) : NA;
+  lineChart("stockChart", {
+    labels: bars.map((b) => b.ts),
+    series: [{ cls: "s1", values: bars.map((b) => b.close) }, { cls: "s2", values: d.sma5 }, { cls: "s3", values: d.sma20 }],
+    fmtY: (v) => "$" + v.toFixed(2),
+    aria: `${stockSym} daily close with SMA 5 and SMA 20 from ${bars[0].ts} to ${bars[bars.length - 1].ts}`,
+    tooltip: (i) => {
+      const b = bars[i];
+      return `${b.ts}<br>O ${fmt(b.open)} · H ${fmt(b.high)}<br>L ${fmt(b.low)} · C ${fmt(b.close)}<br>Vol ${Number(b.volume).toLocaleString()}<br>SMA5 ${fmt(d.sma5[i])} · SMA20 ${fmt(d.sma20[i])}`;
+    },
+  });
+  const a = d.analysis, last = bars[bars.length - 1], prev = bars[bars.length - 2];
+  const chg = prev ? (last.close / prev.close - 1) * 100 : null;
+  const val = (v, f) => v === "INSUFFICIENT DATA" ? '<span class="muted">INSUFFICIENT DATA</span>' : isNum(v) ? f(v) : NA;
+  if (!a.enough_data) {
+    $("stockKpis").innerHTML = kpi("Last close", fmt(last.close), `${esc(last.ts)} · ${pct(chg)} vs previous`, cls(chg));
+    $("stockAnalysis").innerHTML = `<p class="na">INSUFFICIENT DATA</p><p class="note">The Market Analyst needs ${a.needed} daily bars; ${a.bars} are stored. No indicator is estimated or filled in.</p>`;
+  } else {
+    const m = a.macd;
+    $("stockKpis").innerHTML = [
+      kpi("Last close", fmt(a.price), `${esc(a.as_of)} · ${pct(chg)} vs previous`, cls(chg)),
+      kpi("SMA 5", fmt(a.sma_fast), "Average of the last 5 closes"),
+      kpi("SMA 20", fmt(a.sma_slow), "Average of the last 20 closes"),
+      kpi("Momentum", pct(a.momentum_pct), "Close vs 19 sessions earlier", cls(a.momentum_pct)),
+      kpi("Volatility", Number(a.volatility_pct).toFixed(2) + "%", "Std. dev. of the last 20 daily returns"),
+      kpi("Volume change", val(a.volume_change_pct, pct), "Latest vs the prior 20-session average", cls(a.volume_change_pct)),
+      kpi("RSI 14", val(a.rsi_14, (v) => v.toFixed(1)), "Wilder's RSI, 14 sessions"),
+      kpi("MACD", m === "INSUFFICIENT DATA" ? val(m) : Number(m.macd).toFixed(2), m === "INSUFFICIENT DATA" ? "Needs 34 bars" : `signal ${Number(m.signal).toFixed(2)} · histogram ${Number(m.histogram).toFixed(2)}`),
+    ].join("");
+    $("stockAnalysis").innerHTML = `<p style="margin:0">Trend <b class="${a.trend === "up" ? "up" : "down"}">${a.trend === "up" ? "▲ up" : "▼ down"}</b>, trend score <b>${a.trend_score}</b> (-1 to +1),
+      because SMA 5 is ${a.sma_fast > a.sma_slow ? "above" : "below"} SMA 20 and momentum is ${pct(a.momentum_pct)} with ${Number(a.volatility_pct).toFixed(2)}% daily volatility.
+      Same rules the Market Analyst uses on simulated prices, applied to ${a.bars} stored ${esc(d.data_type)} bars up to ${esc(a.as_of)}.</p>
+      <p class="note">Research and display only. This analysis is not sent to the Strategy Agent, does not create proposals, and never places or sizes a simulated or real order.</p>`;
+  }
+  $("stockBars").innerHTML = table(["Date", "Open", "High", "Low", "Close", "Volume", "Provider", "Origin"],
+    bars.slice(-30).reverse().map((b) => `<tr><td>${esc(b.ts)}</td><td>${fmt(b.open)}</td><td>${fmt(b.high)}</td><td>${fmt(b.low)}</td><td>${fmt(b.close)}</td>
+      <td>${Number(b.volume).toLocaleString()}</td><td>${esc(b.provider)}</td><td>${esc(b.origin)}</td></tr>`), "");
+}
+
+// ---------- 3a2. crypto (real historical Kraken candles, read-only) ----------
+async function loadCrypto() {
+  cryptoLoadedAt = Date.now();
+  const pair = cryptoPair, interval = cryptoInterval;
+  try {
+    const [o, d] = await Promise.all([fetch("/api/crypto", { cache: "no-store" }),
+      fetch(`/api/crypto/${pair.replace("/", "-")}?interval=${interval}`, { cache: "no-store" })]);
+    if (!o.ok || !d.ok) throw new Error("HTTP");
+    crypto.overview = await o.json(); crypto.detail[`${pair}|${interval}`] = await d.json(); cryptoError = null;
+  } catch (e) { cryptoError = "Could not load crypto data from the server."; }
+  if (currentView() === "crypto") renderCrypto();
+}
+
+function volumeBars(id, labels, values) {  // simple bar chart; each bar carries a native tooltip
+  const box = $(id), n = values.length, W = Math.max(280, box.clientWidth || 800), H = 90, L = 84, R = 14;
+  const max = Math.max(...values, 0) || 1, bw = (W - L - R) / Math.max(n, 1);
+  box.innerHTML = `<svg width="${W}" height="${H}" role="img" aria-label="Volume per candle, highest ${max.toLocaleString()}">
+    <g class="axis"><text x="${L - 8}" y="12" text-anchor="end">${max.toLocaleString(undefined, { maximumFractionDigits: 2 })}</text><text x="${L - 8}" y="${H - 2}" text-anchor="end">0</text></g>
+    ${values.map((v, i) => `<rect x="${(L + i * bw).toFixed(1)}" y="${(H - (v / max) * (H - 4)).toFixed(1)}" width="${Math.max(1, bw - 1).toFixed(1)}" height="${((v / max) * (H - 4)).toFixed(1)}" rx="1" fill="#3987e5" opacity=".75"><title>${esc(labels[i])} · volume ${Number(v).toLocaleString()}</title></rect>`).join("")}</svg>`;
+}
+
+function renderCrypto() {
+  const ov = crypto.overview, d = crypto.detail[`${cryptoPair}|${cryptoInterval}`];
+  const rowsFor = (pair) => ((ov && ov.pairs.find((p) => p.pair === pair && p.interval === cryptoInterval)) || {});
+  $("cryptoTabs").innerHTML = PAIRS.map((pair) => {
+    const o = rowsFor(pair);
+    return `<button role="tab" data-crypto="${pair}" aria-selected="${pair === cryptoPair}">${pair} <span class="badge ${o.rows ? "good" : ""}">${o.rows ? o.rows + " candles" : "no data"}</span></button>`;
+  }).join("");
+  document.querySelectorAll("[data-interval]").forEach((b) => b.setAttribute("aria-selected", String(Number(b.dataset.interval) === cryptoInterval)));
+  const show = (has) => { $("cryptoChartBox").hidden = !has; $("cryptoData").hidden = !has; };
+  if (cryptoError || !d) {
+    show(false); $("cryptoLog").innerHTML = "";
+    $("cryptoHead").innerHTML = cryptoError ? `<p class="na">DATA UNAVAILABLE</p><p class="note">${esc(cryptoError)}</p>` : '<p class="empty">Loading…</p>';
+    return;
+  }
+  const utc = (s) => s ? esc(String(s).replace("T", " ").replace("Z", "").slice(0, 16)) + " UTC" : NA;
+  $("cryptoLog").innerHTML = table(["Time (UTC)", "Source", "Requests", "Status", "Received", "Open (left out)", "New", "Same", "Conflicts", "Rejected", "Message"],
+    d.log.map((l) => `<tr><td>${utc(l.time)}</td><td>${esc(l.origin)} · ${esc(l.source)}</td><td>${l.requests}</td>
+      <td class="${l.status === "OK" ? "up" : l.status === "SKIPPED" ? "muted" : "down"}">${esc(l.status)}</td>
+      <td>${l.received ?? "–"}</td><td>${l.unconfirmed ?? "–"}</td><td>${l.inserted ?? "–"}</td><td>${l.unchanged ?? "–"}</td>
+      <td>${l.conflicts ?? "–"}</td><td>${l.rejected ?? "–"}</td><td class="text">${esc(l.message || "")}</td></tr>`),
+    "No fetch or import attempts recorded for this pair and interval yet.");
+  const delay = d.rows ? (d.behind_candles ? `<span class="badge warn">DELAYED · ${d.behind_candles} candle(s) behind</span>` : '<span class="badge good">UP TO DATE (last closed candle)</span>') : "";
+  const head = `<div class="source">
+      <span><span class="badge ${d.rows ? (d.status.startsWith("HISTORICAL") ? "good" : "warn") : "bad"}">${esc(d.status)}</span> ${delay}</span>
+      <span>Exchange: <b>${esc(d.exchange)} · ${esc(d.market_type)}</b></span>
+      <span>Pair: <b>${esc(d.pair)}</b>${d.exchange_pair ? ` (Kraken <code>${esc(d.exchange_pair)}</code>, ${esc(d.pair_status || "")}, checked ${utc(d.pair_verified_at)})` : " (not yet checked with AssetPairs)"}</span>
+      <span>Interval: <b>${d.interval} min</b></span>
+      <span>Candles: <b>${d.rows}</b>${d.rows ? ` (${utc(d.first)} → ${utc(d.last)} open)` : ""}</span>
+      <span>Latest confirmed close: <b>${utc(d.last_close_time)}</b></span>
+      <span>Collected: <b>${utc(d.last_collected)}</b></span>
+      <span>AI: <span class="badge">${esc(d.grok)}</span></span></div>`;
+  const warnings = d.warnings.length ? `<ul class="warn" style="margin:0 0 12px">${d.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : "";
+  if (!d.rows) {
+    show(false);
+    $("cryptoHead").innerHTML = head + `<p class="na">DATA UNAVAILABLE</p><p class="note">No confirmed Kraken candles are stored for ${esc(d.pair)} at ${d.interval} min, so nothing is drawn: this screen never shows simulated prices.<br>
+      Fetch from Kraken's public API (no key, 1-2 requests): <code>python -m app.cryptodata fetch ${esc(d.pair)} --interval ${d.interval}</code><br>
+      Or import Kraken's OHLCVT download / your CSV: <code>python -m app.cryptodata import-csv FILE.csv --pair ${esc(d.pair)} --interval ${d.interval}</code></p>`;
+    return;
+  }
+  show(true);
+  $("cryptoHead").innerHTML = head + `<p class="note" style="margin:0 0 10px">${esc(d.note)}</p>` + warnings;
+  const c = d.candles, fmt = (v) => isNum(v) ? "$" + Number(v).toLocaleString(undefined, { maximumFractionDigits: 2, minimumFractionDigits: 2 }) : NA;
+  lineChart("cryptoChart", {
+    labels: c.map((x) => utc(x.ts)),
+    series: [{ cls: "s1", values: c.map((x) => x.close) }, { cls: "s2", values: d.sma20 }, { cls: "s3", values: d.ema12 }],
+    fmtY: (v) => "$" + Number(v).toLocaleString(undefined, { maximumFractionDigits: 2 }),
+    aria: `${d.pair} ${d.interval}-minute close with SMA 20 and EMA 12, ${c.length} confirmed candles`,
+    tooltip: (i) => `${utc(c[i].ts)} (open)<br>O ${fmt(c[i].open)} · H ${fmt(c[i].high)}<br>L ${fmt(c[i].low)} · C ${fmt(c[i].close)}<br>Vol ${Number(c[i].volume).toLocaleString()} · trades ${c[i].trades ?? NA}<br>SMA20 ${fmt(d.sma20[i])} · EMA12 ${fmt(d.ema12[i])}`,
+  });
+  volumeBars("cryptoVolume", c.map((x) => utc(x.ts)), c.map((x) => x.volume));
+  const a = d.analysis, val = (v, f) => v === "INSUFFICIENT DATA" ? '<span class="muted">INSUFFICIENT DATA</span>' : isNum(v) ? f(v) : NA;
+  if (!a.enough_data) {
+    $("cryptoKpis").innerHTML = kpi("Latest confirmed close", fmt(a.last_close), utc(a.analysis_time));
+  } else {
+    const m = a.macd;
+    $("cryptoKpis").innerHTML = [
+      kpi("Latest confirmed close", fmt(a.last_close), utc(a.analysis_time)),
+      kpi("SMA 5", fmt(a.sma_fast), "Last 5 closes"), kpi("SMA 20", fmt(a.sma_slow), "Last 20 closes"),
+      kpi("EMA 12", val(a.ema_12, fmt), "12-candle exponential"), kpi("EMA 26", val(a.ema_26, fmt), "26-candle exponential"),
+      kpi("RSI 14", val(a.rsi_14, (v) => v.toFixed(1)), "Wilder's RSI"),
+      kpi("MACD", m === "INSUFFICIENT DATA" ? val(m) : Number(m.macd).toFixed(2), m === "INSUFFICIENT DATA" ? "Needs 34 candles" : `signal ${Number(m.signal).toFixed(2)} · hist ${Number(m.histogram).toFixed(2)}`),
+      kpi("Momentum", pct(a.momentum_pct), "Close vs 19 candles earlier", cls(a.momentum_pct)),
+      kpi("Volatility", Number(a.volatility_pct).toFixed(2) + "%", "Std. dev. of the last 20 candle returns"),
+      kpi("Volume change", val(a.volume_change_pct, pct), "Latest vs the prior 20-candle average", cls(a.volume_change_pct)),
+    ].join("");
+  }
+  $("cryptoAnalysis").innerHTML = (a.enough_data
+    ? `<p style="margin:0">Observed trend <b class="${a.trend === "up" ? "up" : "down"}">${a.trend === "up" ? "▲ up" : "▼ down"}</b>, trend score <b>${a.trend_score}</b> (-1 to +1): SMA 5 is ${a.sma_fast > a.sma_slow ? "above" : "below"} SMA 20, momentum ${pct(a.momentum_pct)}, volatility ${Number(a.volatility_pct).toFixed(2)}% per candle.</p>`
+    : `<p class="na">INSUFFICIENT DATA</p><p class="note">The Market Analyst needs ${a.needed} confirmed candles; ${a.bars} are stored. No indicator is estimated.</p>`) +
+    `<dl class="facts" style="margin-top:12px">
+      <dt>Market</dt><dd>${esc(a.market)} · ${esc(a.market_type)} · ${esc(a.exchange)} · ${esc(a.pair)} · ${esc(a.interval)}</dd>
+      <dt>Analysis time</dt><dd>${utc(a.analysis_time)} (close of the latest confirmed candle)</dd>
+      <dt>Data</dt><dd>${esc(a.data_source)} · quality: ${esc(a.data_quality)} · ${a.delayed ? `<span class="bad">delayed by ${a.behind_candles} candle(s)</span>` : "not delayed"}</dd>
+      <dt>Limitations</dt><dd>${esc(a.limitations)}</dd>
+      <dt>AI research</dt><dd><span class="badge">${esc(d.grok)}</span> No AI analysis is shown here. Everything above is exchange data and rule-based indicators.</dd>
+    </dl><p class="note">Research and display only: not sent to the Strategy Agent, creates no proposal, never places or sizes a simulated or real order.</p>`;
+  $("cryptoBars").innerHTML = table(["Open time (UTC)", "Open", "High", "Low", "Close", "Volume", "Trades", "Origin"],
+    c.slice(-40).reverse().map((x) => `<tr><td>${utc(x.ts)}</td><td>${fmt(x.open)}</td><td>${fmt(x.high)}</td><td>${fmt(x.low)}</td><td>${fmt(x.close)}</td>
+      <td>${Number(x.volume).toLocaleString()}</td><td>${x.trades ?? NA}</td><td>${esc(x.origin)}</td></tr>`), "");
+}
+
+// ---------- 9. Trade Decision Center (Lesson 9; /api/decisions, paper ledger) ----------
+async function loadDecisions() {
+  decLoadedAt = Date.now();
+  try {
+    const res = await fetch("/api/decisions", { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    D = await res.json(); decError = null;
+  } catch (e) { decError = "Could not load /api/decisions from the server."; }
+  if (["decisions", "riskctl"].includes(currentView())) renderDecView();
+}
+
+// shared by the Decision Center and the Risk Control Center
+const decTone = (v) => ["RISK_APPROVED", "HUMAN_APPROVED", "FILLED", "PRE_APPROVED_WITH_ENTRY"].includes(v) ? "good" : ["RISK_REJECTED", "BLOCKED", "HUMAN_REJECTED"].includes(v) ? "warn" : "";
+const decBadge = (v) => v ? `<span class="badge ${decTone(v)}">${esc(v)}</span>` : '<span class="muted">—</span>';
+const decNum = (v, d = 4) => isNum(v) ? Number(v).toLocaleString(undefined, { maximumFractionDigits: d }) : NA;
+const decUtc = (s) => s ? esc(String(s).replace("T", " ").replace("+00:00", "").replace("Z", "")) + " UTC" : NA;
+const decActions = (x) => x.human_approval_status !== "AWAITING_HUMAN_APPROVAL" ? decBadge(x.human_approval_status) :
+  `<button class="btn-sm approve" data-dapprove="${esc(x.proposal_id)}" data-hash="${esc(x.content_hash)}" ${decBusy ? "disabled" : ""}
+     aria-label="Approve simulated ${esc(x.signal)} ${esc(x.symbol)}">${decBusy === x.proposal_id ? "Checking…" : "Approve (paper)"}</button>
+   <button class="btn-sm reject" data-dreject="${esc(x.proposal_id)}" ${decBusy ? "disabled" : ""} aria-label="Reject ${esc(x.signal)} ${esc(x.symbol)}">Reject</button>`;
+const renderDecView = () => currentView() === "riskctl" ? renderRiskCtl() : renderDecisions();
+
+async function decisionCall(url, body, busyKey) {  // shows the server's exact answer, success or failure
+  if (decBusy) return;
+  decBusy = busyKey; renderDecView();
+  try {
+    const res = await fetch(url, { method: "POST", headers: { "Content-Type": "application/json" }, body: body ? JSON.stringify(body) : null });
+    const d = await res.json().catch(() => ({}));
+    const msg = typeof d.detail === "string" ? d.detail : d.detail ? JSON.stringify(d.detail) : d.message;
+    if (url.endsWith("/run") && res.ok) {
+      const n = (k) => d.proposals.filter((p) => p.signal === k).length;
+      flash(`Decision cycle done: ${n("BUY")} BUY, ${n("SELL")} SELL, ${n("HOLD")} HOLD, ${n("NO TRADE")} NO TRADE. Nothing was executed.`, true);
+    } else if (url.endsWith("/check-stops") && res.ok) {
+      flash(d.events.length ? `Stop check: ${d.events.map((e) => `${e.kind} ${e.symbol}`).join(", ")} (simulated).` : "Stop check done: nothing triggered.", true);
+    } else if (res.ok && d.fill) {
+      const f = d.fill;
+      flash(`SIMULATED fill: ${f.side} ${Number(f.qty).toLocaleString(undefined, { maximumFractionDigits: 6 })} ${f.symbol} at ${f.price} (fee ${money(f.fee)}). Cash ${money(f.cash_before)} → ${money(f.cash_after)}.`, true);
+    } else flash((res.ok ? "" : `Failed (HTTP ${res.status}): `) + (msg || "No answer."), res.ok);
+  } catch (e) { flash("Could not reach the server. Nothing was changed."); }
+  decBusy = null; loadDecisions();
+}
+
+function renderDecisions() {
+  const sigCls = (s) => s === "BUY" ? "up" : s === "SELL" ? "down" : "muted";
+  const badge = decBadge, num = decNum, utc = decUtc, actions = decActions;
+  $("decRunBtn").disabled = !!decBusy;
+  $("decRunBtn").textContent = decBusy === "run" ? "Running…" : "Run decision cycle";
+  $("decRunText").textContent = "Reads stored real data (read-only), runs every agent and the Risk Manager, and saves one proposal per symbol. " +
+    "It never executes anything: BUY/SELL proposals that pass risk wait for your approval below and expire after " +
+    `${D ? D.settings.expires_seconds / 60 : 5} minutes. Grok is not called.`;
+  if (!D) { $("decLatest").innerHTML = `<p class="empty">${decError || "Loading…"}</p>`; return; }
+  const p = D.performance, st = D.settings;
+  $("decKpis").innerHTML = [
+    kpi("Paper equity", money(p.equity), p.prices_fresh ? "positions at the latest analyzed price" : `stale price: ${esc(p.stale_prices.join(", "))}`, p.prices_fresh ? "" : "down"),
+    kpi("Paper cash", money(p.cash), `start ${money(p.starting_cash)}`),
+    kpi("Realized P&L", money(p.realized_pnl), "", cls(p.realized_pnl)),
+    kpi("Unrealized P&L", money(p.unrealized_pnl), "", cls(p.unrealized_pnl)),
+    kpi("Total return", pct(p.total_return_pct), "", cls(p.total_return_pct)),
+    kpi("Fills / win rate", `${p.trade_count} / ${isNum(p.win_rate_pct) ? p.win_rate_pct + "%" : NA}`, `${p.closed_trades} closed`),
+    kpi("Max drawdown", dd(p.max_drawdown_pct), "at fill times"),
+    kpi("Fees paid", money(p.fees_paid)),
+    kpi("Approved & filled", p.approved_orders, `${p.waiting} waiting · ${p.expired} expired`),
+    kpi("Rejected", Number(p.risk_rejected) + Number(p.human_rejected) + Number(p.blocked_at_approval),
+      `risk ${p.risk_rejected} · you ${p.human_rejected} · re-check ${p.blocked_at_approval}`),
+    kpi("NO TRADE / HOLD", `${p.no_trade} / ${p.hold}`),
+  ].join("");
+
+  const ind = (m) => m.enough_data
+    ? `price ${num(m.price)} · SMA5 ${num(m.sma_fast)} / SMA20 ${num(m.sma_slow)} · EMA12 ${num(m.ema_12)} / EMA26 ${num(m.ema_26)} · RSI ${num(m.rsi_14, 2)} · ` +
+      `MACD ${m.macd && m.macd.macd !== undefined ? num(m.macd.macd) : esc(m.macd)} · momentum ${pct(m.momentum_pct)} · volatility ${num(m.volatility_pct, 3)}% · ` +
+      `volume ${pct(m.volume_change_pct)} · trend ${esc(m.trend)} (${m.trend_score})`
+    : `<span class="bad">${esc(m.status)}</span> (${m.bars || 0} bars)`;
+  const details = (x) => {
+    const m = x.market_analysis || {}, r = x.reasoning || {}, n = x.news_analysis || {};
+    const list = (a) => a && a.length ? `<ul class="warn">${a.filter(Boolean).map((w) => `<li>${esc(w)}</li>`).join("")}</ul>` : '<span class="muted">none</span>';
+    return `<tr class="dec-detail"><td colspan="12" class="text">
+      <dl class="facts">
+        <dt>Market Analyst</dt><dd>${esc(r.data_used)}<br>${ind(m)}<br><span class="muted">${esc(m.trading_hours || "")} · data ${m.delayed ? '<b class="bad">DELAYED</b>' : "latest closed bar"} · ${esc(m.data_mode || "")}</span></dd>
+        <dt>News Analyst</dt><dd><b>${esc(n.status)}</b> · score ${n.score} · <span class="muted">${esc(n.note)}</span></dd>
+        <dt>Strategy rule</dt><dd>${esc(r.rule)}<br>Amount: ${esc(r.amount)}${x.size_adjustment ? `<br><b>${esc(x.size_adjustment)}</b>` : ""}</dd>
+        <dt>Research</dt><dd>${esc(x.research_source)}</dd>
+        <dt>Risk checks</dt><dd>${(x.risk_checks || []).length ? (x.risk_checks).map((c) => `<span class="${c.ok ? "up" : "bad"}">${c.ok ? "PASS" : "FAIL"}</span> ${esc(c.check)}: <span class="muted">${esc(c.detail)}</span>`).join("<br>") : '<span class="muted">not run (no order)</span>'}</dd>
+        <dt>Data warnings / limits</dt><dd>${list(r.risks)}</dd>
+        <dt>Missing / uncertain</dt><dd>${list(r.missing_or_uncertain)}</dd>
+        <dt>IDs</dt><dd><code>${esc(x.proposal_id)}</code> · created ${utc(x.created_at)}${x.expires_at ? ` · expires ${utc(x.expires_at)}` : ""}${x.content_hash ? ` · hash <code>${esc(x.content_hash)}</code>` : ""}</dd>
+      </dl></td></tr>`;
+  };
+  $("decLatest").innerHTML = table(["Symbol", "Signal", "Qty", "Amount", "Conf.", "Risk", "Approval", "Execution", "Source", "Data as of", "Risk reason", "Why"],
+    D.latest_run.map((x) => `<tr><td>${esc(x.symbol)}<br><span class="muted">${esc(x.market_type)} · ${esc(x.instrument_type)}</span></td>
+      <td class="${sigCls(x.signal)}"><b>${esc(x.signal)}</b></td><td>${num(x.proposed_quantity, 6)}</td>
+      <td>${isNum(x.proposed_notional) ? money(x.proposed_notional) + " " + esc(x.currency || "") : NA}</td><td>${num(x.confidence, 2)}</td>
+      <td>${badge(x.risk_decision)}</td><td>${actions(x)}</td><td>${badge(x.execution_status)}</td>
+      <td>${esc(x.exchange_or_provider || NA)}<br><span class="muted">${esc((x.market_analysis || {}).data_source || "")}</span></td>
+      <td>${esc(x.data_timestamp_utc || NA)}${(x.market_analysis || {}).delayed ? '<br><span class="bad">DELAYED</span>' : ""}</td>
+      <td class="text">${esc(x.risk_reason)}</td>
+      <td class="text">${esc((x.reasoning || {}).strategy_note)}<br><button class="btn-sm" data-dtoggle="${esc(x.proposal_id)}" aria-expanded="${decOpen.has(x.proposal_id)}">${decOpen.has(x.proposal_id) ? "Hide details" : "Show details"}</button></td></tr>${decOpen.has(x.proposal_id) ? details(x) : ""}`),
+    "No decision cycle yet. Press <b>Run decision cycle</b>.");
+  $("decNote").innerHTML = "Risk approval is not an order: only <b>Approve (paper)</b> creates a simulated fill, after every check runs again " +
+    "(expiry, content hash, newer market data, all risk limits). A second click never creates a second fill.";
+  $("decPositions").innerHTML = table(["Symbol", "Market", "Qty", "Avg price", "Last analyzed price", "Unrealized", "Price time"],
+    D.positions.map((x) => `<tr><td>${esc(x.symbol)}</td><td>${esc(x.market_type)}</td><td>${num(x.qty, 6)}</td><td>${money(x.avg_price)}</td>
+      <td>${money(x.mark_price)}${x.mark_fresh ? "" : ' <span class="bad">stale</span>'}</td><td class="${cls((x.mark_price - x.avg_price) * x.qty)}">${money((x.mark_price - x.avg_price) * x.qty)}</td><td>${utc(x.mark_time)}</td></tr>`),
+    "No paper positions yet.");
+  const pctv = (v) => (v * 100).toFixed(1) + "%";
+  $("decSettings").innerHTML = table(["Rule", "Setting"], [
+    ["Max size per position", pctv(st.max_position_pct) + " of paper equity"], ["Max open positions", st.max_open_positions],
+    ["Total exposure cap", pctv(st.max_total_exposure_pct) + " (max positions × max size)"], ["Daily loss limit", "-" + pctv(st.max_daily_loss_pct) + " (baseline re-set each UTC day)"],
+    ["Max drawdown", "-" + pctv(st.max_drawdown_pct)], ["Crypto exposure cap", pctv(st.max_crypto_exposure_pct) + " at cost"],
+    ["Needs review below", "confidence " + st.review_below_confidence], ["Abnormal price", "jump > " + pctv(st.abnormal_jump_pct) + " vs previous close"],
+    ["Proposal expiry", st.expires_seconds + " s"], ["Order type", esc(st.order_type) + ", fee " + (st.fee_pct * 100).toFixed(2) + "%"],
+  ].map(([a, b]) => `<tr><td class="text" style="color:var(--text)">${a}</td><td>${b}</td></tr>`), "");
+  $("decFills").innerHTML = table(["Filled (UTC)", "Proposal", "Side", "Symbol", "Qty", "Price", "Fee", "Cash before → after", "Position before → after", "Realized P&L", "Approved"],
+    D.fills.map((f) => `<tr><td>${utc(f.filled_at)}</td><td><code>${esc(f.proposal_id)}</code></td><td class="${sigCls(f.side)}">${esc(f.side)}</td><td>${esc(f.symbol)}</td>
+      <td>${num(f.qty, 6)}</td><td>${money(f.price)}</td><td>${money(f.fee)}</td><td>${money(f.cash_before)} → ${money(f.cash_after)}</td>
+      <td>${num(f.position_before, 6)} → ${num(f.position_after, 6)}</td><td class="${cls(f.realized_pnl)}">${isNum(f.realized_pnl) ? money(f.realized_pnl) : NA}</td><td>${utc(f.approved_at)}</td></tr>`),
+    "No simulated fills yet. Fills appear only after you approve a proposal.");
+  $("decHistory").innerHTML = table(["Created (UTC)", "Symbol", "Signal", "Amount", "Risk", "Approval", "Execution", "Reason"],
+    D.history.map((x) => `<tr><td>${utc(x.created_at)}</td><td>${esc(x.symbol)}</td><td class="${sigCls(x.signal)}">${esc(x.signal)}</td>
+      <td>${isNum(x.proposed_notional) ? money(x.proposed_notional) : NA}</td><td>${badge(x.risk_decision)}</td><td>${badge(x.human_approval_status)}</td>
+      <td>${badge(x.execution_status)}</td><td class="text">${esc(x.risk_reason)}</td></tr>`),
+    "No proposals yet.");
+}
+
+// ---------- 10. Risk Control Center (Lesson 10; same /api/decisions payload) ----------
+function renderRiskCtl() {
+  $("rcStopsBtn").disabled = !!decBusy;
+  $("rcResetBtn").disabled = !!decBusy;
+  if (!D) { $("rcKpis").innerHTML = `<p class="empty">${decError || "Loading…"}</p>`; return; }
+  const r = D.risk, ks = r.kill_switch, cd = r.cooldown, ex = r.exposure, dl = r.daily, dr = r.drawdown, st = D.settings;
+  const pctv = (v) => isNum(v) ? Number(v).toFixed(2) + "%" : NA;
+  const detail = (d) => esc(Object.entries(d || {}).map(([k, v]) => `${k}: ${typeof v === "number" ? decNum(v, 6) : typeof v === "object" ? JSON.stringify(v) : v}`).join(" · ")).slice(0, 400);
+  $("rcBanner").innerHTML =
+    (ks.active ? `<p class="callout" role="alert"><b>KILL SWITCH ACTIVE since ${decUtc(ks.triggered_at)}: ${esc(ks.reason)}.</b> All new BUYs are blocked. Risk-reducing sells and stop-loss exits still work. Equity at trigger ${money(ks.equity_at_trigger)}, peak ${money(ks.peak_at_trigger)}. It clears only after a reviewed reset.</p>` : "") +
+    (cd.active ? `<p class="callout" style="margin-top:8px"><b>LOSING-STREAK COOLDOWN until ${decUtc(cd.until)}:</b> ${esc(cd.reason)}. No new BUYs; exits allowed.</p>` : "") +
+    (!r.prices_fresh ? `<p class="callout" style="margin-top:8px"><b>Prices not fresh for ${esc(r.stale_prices.join(", "))}:</b> today's loss and the drawdown can't be computed, so new BUYs are blocked (fail closed). Run a decision cycle on up-to-date data.</p>` : "");
+  $("rcKpis").innerHTML = [
+    kpi("Paper equity", money(r.equity), r.prices_fresh ? "SIMULATION ONLY" : "stale prices", r.prices_fresh ? "" : "down"),
+    kpi("Total exposure", pctv(ex.total_pct), `limit ${pctv(ex.total_limit_pct)}`),
+    kpi("Stocks", pctv(ex.STOCK_pct), `limit ${pctv(ex.limits_pct.STOCK)} (total cap)`),
+    kpi("Crypto spot", pctv(ex.CRYPTO_SPOT_pct), `limit ${pctv(ex.limits_pct.CRYPTO_SPOT)}`),
+    kpi("Prediction", esc(ex.PREDICTION), "no verified data (Lesson 8)"),
+    kpi("Daily P&L", isNum(dl.pnl) ? money(dl.pnl) : NA, isNum(dl.pnl_pct) ? `${pct(dl.pnl_pct)} vs ${money(dl.baseline)} (${esc(dl.date)})` : "not computable now", cls(dl.pnl)),
+    kpi("Daily loss limit", "-" + pctv(dl.limit_pct), "day starts 00:00 UTC"),
+    kpi("Drawdown", dd(dr.pct), `limit -${pctv(dr.limit_pct)} · peak ${money(dr.peak)}`, dr.pct >= dr.limit_pct ? "down" : ""),
+    kpi("Per-trade risk", pctv(r.per_trade_risk_pct), `stop -${pctv(r.stop_loss_pct)} · slippage ${pctv(r.slippage_pct)}`),
+    kpi("Losing streak", `${r.losing_streak} / ${r.max_consecutive_losses}`, "closed trades, fees included"),
+    kpi("Cooldown", cd.active ? "ACTIVE" : "OFF", cd.active ? `until ${decUtc(cd.until)}` : `${cd.hours} h after ${r.max_consecutive_losses} losses`, cd.active ? "down" : ""),
+    kpi("Kill switch", ks.active ? "ACTIVE" : "OFF", ks.active ? decUtc(ks.triggered_at) : "latched until a reviewed reset", ks.active ? "down" : ""),
+  ].join("");
+  $("rcKill").innerHTML = (ks.active
+    ? `<p><span class="badge bad">ACTIVE</span> since ${decUtc(ks.triggered_at)}</p><p class="note">${esc(ks.reason)}</p>`
+    : `<p><span class="badge good">OFF</span> <span class="muted">Fires at a ${pctv(dr.limit_pct)} drawdown from the peak. Stays on through new days and restarts.</span></p>`) +
+    `<div class="scroll">${table(["Time", "Event", "Detail"], r.kill_switch_history.map((e) => `<tr><td>${decUtc(e.time)}</td><td>${decBadge(e.kind)}</td><td class="text">${detail(e.detail)}</td></tr>`),
+      "No kill switch events yet.")}</div>`;
+  $("rcResetForm").hidden = !ks.active;
+  $("rcPhrase").textContent = ks.reset_phrase;
+  $("rcLimits").innerHTML = table(["Rule", "Setting"], [
+    ["Max position (held + new)", pctv(st.max_position_pct * 100) + " of equity"], ["Total exposure", pctv(st.max_total_exposure_pct * 100)],
+    ["Crypto spot exposure", pctv(st.max_crypto_exposure_pct * 100)], ["Prediction markets", "UNSUPPORTED (0%)"],
+    ["Per-trade risk at the stop", pctv(st.risk_per_trade_pct * 100) + " of equity, incl. fees + slippage"],
+    ["Stop-loss / take-profit", `-${pctv(st.stop_loss_pct * 100)} / +${pctv(st.take_profit_pct * 100)} from entry`],
+    ["Slippage / fee", `${pctv(st.slippage_pct * 100)} / ${pctv(st.fee_pct * 100)}`],
+    ["Daily loss", "-" + pctv(st.max_daily_loss_pct * 100) + " (UTC day; realized + unrealized)"], ["Drawdown kill switch", "-" + pctv(st.max_drawdown_pct * 100) + " from peak"],
+    ["Losing-streak cooldown", `${st.max_consecutive_losses} losses → ${st.cooldown_hours} h`], ["Max open positions", st.max_open_positions],
+    ["Minimum order", "50 USD; whole shares for stocks"],
+  ].map(([a, b]) => `<tr><td class="text" style="color:var(--text)">${a}</td><td>${b}</td></tr>`), "");
+  const waiting = D.history.filter((x) => x.human_approval_status === "AWAITING_HUMAN_APPROVAL");
+  $("rcPending").innerHTML = table(["Symbol", "Signal", "Qty", "Amount", "Stop", "Risk", "Expires", ""],
+    waiting.map((x) => `<tr><td>${esc(x.symbol)}</td><td><b>${esc(x.signal)}</b></td><td>${decNum(x.proposed_quantity, 6)}</td><td>${money(x.proposed_notional)}</td>
+      <td>${isNum(x.stop_price) ? money(x.stop_price) : NA}</td><td>${decBadge(x.risk_decision)}${x.size_adjustment ? `<br><span class="muted">${esc(x.size_adjustment)}</span>` : ""}</td>
+      <td>${decUtc(x.expires_at)}</td><td>${decActions(x)}</td></tr>`),
+    "Nothing waiting. Risk-approved BUY/SELL proposals wait here; nothing fills without your approval.");
+  $("rcRejected").innerHTML = table(["Time", "Symbol", "Signal", "Amount", "Risk", "Approval", "Reason"],
+    r.rejected.map((x) => `<tr><td>${decUtc(x.decided_at || x.created_at)}</td><td>${esc(x.symbol)}</td><td>${esc(x.signal)}</td>
+      <td>${isNum(x.original_notional) ? money(x.original_notional) : NA}</td><td>${decBadge(x.risk_decision)}</td><td>${decBadge(x.human_approval_status)}</td>
+      <td class="text">${esc(x.risk_reason)}</td></tr>`), "No rejected trades yet.");
+  $("rcStops").innerHTML = table(["Time", "Event", "Symbol", "Fill price", "Stop", "Realized P&L", "Note"],
+    r.stop_events.map((e) => `<tr><td>${decUtc(e.time)}</td><td>${decBadge(e.kind)}</td><td>${esc(e.symbol)}</td>
+      <td>${isNum(e.detail.fill_price) ? money(e.detail.fill_price) : NA}</td><td>${isNum(e.detail.stop_price) ? money(e.detail.stop_price) : NA}</td>
+      <td class="${cls(e.detail.realized_pnl)}">${isNum(e.detail.realized_pnl) ? money(e.detail.realized_pnl) : NA}</td>
+      <td class="text">${esc(e.detail.note || e.detail.warning)}</td></tr>`), "No stop-loss events yet (simulated exits appear here).");
+  $("rcLog").innerHTML = table(["Time", "Event", "Symbol", "Detail"],
+    r.events.map((e) => `<tr><td>${decUtc(e.time)}</td><td>${decBadge(e.kind)}</td><td>${esc(e.symbol || "")}</td><td class="text">${detail(e.detail)}</td></tr>`),
+    "No risk events yet.");
+}
+
+// ---------- 11. Backtesting Lab (Lesson 11; /api/backtest) ----------
+let BT = { opts: null, runs: [], run: null, seg: "test", poll: null, busy: false };
+const IVL = { 1: "1m", 5: "5m", 15: "15m", 60: "1h", 240: "4h", 1440: "1d" };
+const btv = (v, f = (x) => x) => v === "N/A" || v === null || v === undefined ? NA : f(v);
+
+async function loadBacktest() {
+  try {
+    if (!BT.opts) { BT.opts = await (await fetch("/api/backtest/options", { cache: "no-store" })).json(); btFormInit(); }
+    BT.runs = (await (await fetch("/api/backtest/runs", { cache: "no-store" })).json()).runs;
+  } catch (e) { $("btHead").innerHTML = '<p class="empty">Could not load /api/backtest.</p>'; }
+  renderBacktest();
+}
+
+function btFormInit() {
+  const o = BT.opts;
+  $("btMarket").innerHTML = Object.keys(o.markets).map((m) => `<option value="${m}">${m}${m === "PREDICTION" ? " (UNSUPPORTED)" : ""}</option>`).join("");
+  $("btEquity").value = o.risk_settings && 100000;
+  btMarketChanged();
+}
+
+function btMarketChanged() {
+  const o = BT.opts, m = $("btMarket").value, mk = o.markets[m], costs = o.costs[m === "STOCK" ? "STOCK" : "CRYPTO_SPOT"];
+  $("btSymbol").innerHTML = mk.symbols.map((s) => `<option>${esc(s)}</option>`).join("") || "<option value=''>none</option>";
+  $("btInterval").innerHTML = mk.intervals.map((i) => `<option value="${i}" ${i === 60 ? "selected" : ""}>${IVL[i]}</option>`).join("") || "<option value='60'>n/a</option>";
+  $("btFee").value = (costs.fee_pct * 100).toFixed(2); $("btSlip").value = (costs.slippage_pct * 100).toFixed(2);
+  btHint();
+}
+
+function btHint() {
+  const o = BT.opts, m = $("btMarket").value, costs = o.costs[m === "STOCK" ? "STOCK" : "CRYPTO_SPOT"];
+  const r = o.ranges[`${$("btSymbol").value}|${$("btInterval").value}`];
+  $("btHint").innerHTML = ($("btSource").value === "DEMO" ? "<b class='bad'>DEMO: synthetic random walk, not market data.</b> " :
+    r ? `Stored REAL data: ${esc(r[0])} → ${esc(r[1])}. ` : "<b class='bad'>No stored data for this choice: the run will report INSUFFICIENT DATA.</b> ") +
+    `Costs: ${esc(costs.source)} Higher timeframes 4h and 1d are used as context when they exist. Risk limits come from .env (Lesson 10) and cannot be loosened here.`;
+}
+
+async function btRun(ev) {
+  ev.preventDefault();
+  if (BT.busy) return;
+  const num = (id) => $(id).value === "" ? null : Number($(id).value);
+  const body = { source: $("btSource").value, market: $("btMarket").value, symbol: $("btSymbol").value, interval: num("btInterval"),
+    start: $("btStart").value || null, end: $("btEnd").value || null, train_ratio: num("btRatio"), starting_equity: num("btEquity"),
+    fee_pct: num("btFee") / 100, slippage_pct: num("btSlip") / 100, approval_policy: $("btPolicy").value };
+  BT.busy = true; $("btRunBtn").disabled = true; $("btRunBtn").textContent = "Running…";
+  try {
+    const res = await fetch("/api/backtest/run", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    const d = await res.json().catch(() => ({}));
+    if (!res.ok) { flash(`Backtest not started (HTTP ${res.status}): ${d.detail || "error"}`); btDone(); return; }
+    flash("Backtest started (historical simulation).", true);
+    btWatch(d.run_id);
+  } catch (e) { flash("Could not reach the server."); btDone(); }
+}
+
+function btDone() { BT.busy = false; $("btRunBtn").disabled = false; $("btRunBtn").textContent = "Run backtest"; }
+
+async function btWatch(id) {
+  clearTimeout(BT.poll);
+  const r = await (await fetch(`/api/backtest/runs/${encodeURIComponent(id)}`, { cache: "no-store" })).json();
+  BT.run = r;
+  if (r.status === "RUNNING") { BT.poll = setTimeout(() => btWatch(id), 1000); }
+  else { btDone(); loadBacktest(); }
+  renderBacktest();
+}
+
+function renderBacktest() {
+  $("btRuns").innerHTML = table(["Created", "Status", "Data", "Symbol", "Interval", "Policy", "Train return", "Test return", ""],
+    BT.runs.map((r) => `<tr><td>${esc(r.created_at)}</td><td>${decBadge(r.status)}</td><td>${esc(r.config.source)}</td><td>${esc(r.config.symbol)}</td>
+      <td>${IVL[r.config.interval] || esc(r.config.interval)}</td><td>${esc(r.config.approval_policy)}</td><td>${pct(r.train_return_pct)}</td><td>${pct(r.test_return_pct)}</td>
+      <td><button class="btn-sm" data-btrun="${esc(r.run_id)}">View</button></td></tr>`), "No backtests yet.");
+  const r = BT.run;
+  $("btCharts").hidden = $("btTables").hidden = !(r && r.train && r.train.metrics);
+  if (!r) return;
+  const st = r.status === "RUNNING" && r.progress ? ` ${esc(r.progress.segment)} ${r.progress.done}/${r.progress.total || "?"} candles` : "";
+  const d = r.data || {}, sp = r.split || {};
+  const head = `<p><span class="badge ${r.label && r.label.includes("DEMO") ? "bad" : "warn"}" style="white-space:normal">${esc(r.label || "SIMULATION / HISTORICAL BACKTEST")}</span> ${decBadge(r.status)}${st}
+    <span class="muted"> run ${esc(r.run_id)} · code ${esc(r.code_version || "")}</span></p>` + (r.reason ? `<p class="callout">${esc(r.reason)}</p>` : "") +
+    `<dl class="facts"><dt>Data</dt><dd>${esc(d.provider || NA)} · ${esc(d.pair || "")} · ${IVL[d.interval_min] || ""} · ${esc(d.price_type || "")}<br><span class="muted">${esc(d.source || "")}</span></dd>
+      <dt>Stored range</dt><dd>${esc(d.first_open || NA)} → ${esc(d.last_open || NA)} · ${d.candles ?? NA} candles · quality <b>${esc(d.quality || NA)}</b></dd>
+      ${(d.warnings || []).length ? `<dt>Warnings</dt><dd><ul class="warn">${d.warnings.map((w) => `<li>${esc(w)}</li>`).join("")}</ul></dd>` : ""}
+      <dt>Split</dt><dd>${esc(sp.split_at ? `Train → ${sp.split_at} → Test (${(sp.train_ratio * 100).toFixed(0)}/${(100 - sp.train_ratio * 100).toFixed(0)})` : NA)} <span class="muted">${esc(sp.method || "")}</span></dd>
+      <dt>Costs</dt><dd>fee ${(r.config.fee_pct * 100).toFixed(2)}% · slippage ${(r.config.slippage_pct * 100).toFixed(2)}% per side <span class="muted">${esc(r.config.cost_source || "")}</span></dd>
+      <dt>Policy</dt><dd>${esc(r.config.approval_policy)}</dd></dl>`;
+  let body = "";
+  if (r.train && r.train.metrics) {
+    const segs = ["train", "test"], M = (k, f) => segs.map((s) => `<td>${btv(r[s].metrics[k], f)}</td>`).join("");
+    const B = (k, f) => segs.map((s) => `<td>${btv(r[s].benchmark[k], f)}</td>`).join("");
+    const p2 = (v) => Number(v).toFixed(2) + "%", m2 = (v) => money(v), n2 = (v) => Number(v).toFixed(2);
+    body = table(["", `Train ${esc(r.train.from)} → ${esc(r.train.to)}`, `Test ${esc(r.test.from)} → ${esc(r.test.to)}`], [
+      ["Starting / ending equity", segs.map((s) => `<td>${money(r[s].metrics.starting_equity)} → ${money(r[s].metrics.ending_equity)}</td>`).join("")],
+      ["Total return", M("total_return_pct", p2)], ["Net profit", M("net_profit", m2)], ["Completed trades", M("completed_trades")],
+      ["Win rate", M("win_rate_pct", (v) => v + "%")], ["Profit factor", segs.map((s) => `<td>${btv(r[s].metrics.profit_factor)}${r[s].metrics.profit_factor_note ? ` <span class="muted">(${esc(r[s].metrics.profit_factor_note)})</span>` : ""}</td>`).join("")],
+      ["Max drawdown", M("max_drawdown_pct", (v) => "-" + p2(v))], ["Fees / slippage", segs.map((s) => `<td>${money(r[s].metrics.total_fees)} / ${money(r[s].metrics.slippage_cost)}</td>`).join("")],
+      ["Sharpe / Sortino", segs.map((s) => `<td>${btv(r[s].metrics.sharpe)} / ${btv(r[s].metrics.sortino)}</td>`).join("")],
+      ["Avg win / avg loss / expectancy", segs.map((s) => `<td>${btv(r[s].metrics.avg_win, m2)} / ${btv(r[s].metrics.avg_loss, m2)} / ${btv(r[s].metrics.expectancy, m2)}</td>`).join("")],
+      ["Avg holding / exposure time", segs.map((s) => `<td>${btv(r[s].metrics.avg_holding_hours, n2)} h / ${btv(r[s].metrics.exposure_time_pct, p2)}</td>`).join("")],
+      ["Rejected proposals / risk events", segs.map((s) => `<td>${r[s].metrics.rejected_proposals} / ${r[s].metrics.risk_events}</td>`).join("")],
+      ["<b>Buy &amp; Hold</b> return / max drawdown", segs.map((s) => `<td>${btv(r[s].benchmark.return_pct, p2)} / -${btv(r[s].benchmark.max_drawdown_pct, p2)}</td>`).join("")],
+      ["Strategy minus Buy &amp; Hold", segs.map((s) => `<td class="${cls(r[s].comparison.excess_return_pct)}">${btv(r[s].comparison.excess_return_pct, p2)}</td>`).join("")],
+      ["Costs: strategy / Buy &amp; Hold", segs.map((s) => `<td>${money(r[s].comparison.strategy_costs)} / ${money(r[s].comparison.buy_hold_costs)}</td>`).join("")],
+      ["Signals", segs.map((s) => `<td class="text">${esc(JSON.stringify(r[s].signals))}</td>`).join("")],
+      ["Rejections by reason", segs.map((s) => `<td class="text">${esc(JSON.stringify(r[s].rejection_reasons))}</td>`).join("")],
+      ["Open position at the end", segs.map((s) => `<td class="text">${r[s].metrics.open_position ? esc(JSON.stringify(r[s].metrics.open_position)) : "none"}</td>`).join("")],
+    ].map(([a, b]) => `<tr><td class="text" style="color:var(--text)">${a}</td>${b}</tr>`), "") +
+      `<ul class="note">${(r.notes || []).map((n) => `<li>${esc(n)}</li>`).join("")}</ul>`;
+  }
+  $("btHead").innerHTML = head + (body ? `<div class="scroll" style="max-height:none">${body}</div>` : "");
+  if (!(r.train && r.train.metrics)) return;
+  const s = r[BT.seg], ch = s.chart, labels = ch.map((x) => x.t.replace("T", " ").replace("Z", ""));
+  $("btSegTabs").innerHTML = ["train", "test"].map((k) => `<button role="tab" aria-selected="${k === BT.seg}" data-btseg="${k}">${k === "train" ? "Train" : "Test"} ${esc(r[k].from.slice(0, 10))} → ${esc(r[k].to.slice(0, 10))}</button>`).join("");
+  const near = (t) => { let j = 0; while (j + 1 < ch.length && ch[j + 1].t <= t) j++; return j; };
+  const marks = s.trades.flatMap((t) => [{ i: near(t.entry_time), cls: "buy", label: `BUY ${t.entry_time} @ ${t.entry_price.toFixed(2)}` },
+    { i: near(t.exit_time), cls: "sell", label: `${t.exit_kind} ${t.exit_time} @ ${t.exit_price.toFixed(2)} (P&L ${t.pnl.toFixed(2)})` }]).map((m) => ({ ...m, v: ch[m.i].close }));
+  lineChart("btEq", { labels, series: [{ values: ch.map((x) => x.eq), cls: "s1" }, { values: ch.map((x) => x.bh), cls: "s2" }], baseline: { value: s.metrics.starting_equity, label: "start" },
+    tooltip: (i) => `${esc(labels[i])}<br>strategy ${money(ch[i].eq)}<br>Buy &amp; Hold ${money(ch[i].bh)}`, fmtY: (v) => money(v), aria: "Equity curve, strategy vs buy and hold" });
+  lineChart("btDd", { labels, series: [{ values: ch.map((x) => -x.dd), cls: "s3" }], tooltip: (i) => `${esc(labels[i])}<br>drawdown -${ch[i].dd.toFixed(2)}%`, fmtY: (v) => v.toFixed(1) + "%", aria: "Strategy drawdown" });
+  lineChart("btPx", { labels, series: [{ values: ch.map((x) => x.close), cls: "s1" }], marks, tooltip: (i) => `${esc(labels[i])}<br>close ${ch[i].close}`, fmtY: (v) => Number(v).toLocaleString(), aria: "Price with simulated trades" });
+  $("btChartNote").textContent = `${ch.length} chart points for ${s.candles} candles (charts are thinned; every metric uses every candle). SIMULATION / HISTORICAL BACKTEST.`;
+  $("btTrades").innerHTML = table(["Signal", "Entry", "Entry price", "Qty", "Exit", "Exit price", "Exit kind", "Fees", "Slippage", "P&L", "Return"],
+    s.trades.map((t) => `<tr><td>${esc(t.signal_time)}</td><td>${esc(t.entry_time)}</td><td>${decNum(t.entry_price, 2)}</td><td>${decNum(t.qty, 6)}</td><td>${esc(t.exit_time)}</td>
+      <td>${decNum(t.exit_price, 2)}</td><td>${decBadge(t.exit_kind)}</td><td>${money(t.fees)}</td><td>${money(t.slippage_cost)}</td><td class="${cls(t.pnl)}">${money(t.pnl)}</td><td class="${cls(t.pnl)}">${pct(t.return_pct)}</td></tr>`),
+    "No completed trades in this segment.");
+  $("btEvents").innerHTML = table(["Time", "Event", "Detail"], s.events.map((e) => `<tr><td>${esc(e.time)}</td><td>${decBadge(e.kind)}</td><td class="text">${esc(Object.entries(e).filter(([k]) => !["time", "kind"].includes(k)).map(([k, v]) => `${k}: ${typeof v === "number" ? decNum(v, 4) : v}`).join(" · "))}</td></tr>`), "No risk events.");
+  $("btProps").innerHTML = table(["Time", "Signal", "Price", "Conf.", "Risk", "Reason", "Approval", "Higher TF (closed only)"],
+    s.proposals.slice(0, 2000).map((x) => `<tr><td>${esc(x.time)}</td><td>${esc(x.signal)}</td><td>${decNum(x.price, 2)}</td><td>${x.confidence}</td><td>${decBadge(x.risk_decision)}</td>
+      <td class="text">${esc(x.reason)}</td><td class="text">${esc(x.approval)}</td><td class="text">${esc(Object.entries(x.higher_timeframes || {}).map(([h, v]) => `${IVL[h] || h}: ${v ? (v.trend || v.status) + " as of " + v.as_of : "none"}`).join(" · "))}</td></tr>`),
+    "No BUY/SELL proposals.");
+}
+
+// ---------- plumbing ----------
+const RENDER = { overview: renderOverview, agents: renderAgents, stocks: renderStocks, crypto: renderCrypto, markets: renderMarkets, portfolio: renderPortfolio, performance: renderPerformance, risk: renderRisk, decisions: renderDecisions, riskctl: renderRiskCtl, backtest: renderBacktest };
+const currentView = () => VIEWS.includes(location.hash.slice(1)) ? location.hash.slice(1) : "overview";
+
+function render() {
+  document.body.classList.toggle("stale", disconnected);
+  renderHeader(S);
+  renderAlerts(S);
+  if (S) RENDER[currentView()](S);
+}
+
+function showView() {
+  const v = currentView();
+  VIEWS.forEach((name) => { $("view-" + name).hidden = name !== v; });
+  document.querySelectorAll("nav a").forEach((a) => {
+    if (a.getAttribute("href") === "#" + v) a.setAttribute("aria-current", "page"); else a.removeAttribute("aria-current");
+  });
+  Object.values(CHARTS).forEach((c) => { c.hover = null; });
+  if (v === "stocks") loadStocks();
+  if (v === "crypto") loadCrypto();
+  if (v === "decisions" || v === "riskctl") loadDecisions();
+  if (v === "backtest") loadBacktest();
+  render();
+}
+
+async function refresh() {
+  try {
+    const res = await fetch("/api/state", { cache: "no-store" });
+    if (!res.ok) throw new Error("HTTP " + res.status);
+    S = await res.json(); disconnected = false; lastOk = Date.now();
+  } catch (e) { disconnected = true; }
+  if (currentView() === "stocks" && Date.now() - stocksLoadedAt > 30000) loadStocks();  // stored data changes only via the CLI
+  if (currentView() === "crypto" && Date.now() - cryptoLoadedAt > 30000) loadCrypto();
+  if (["decisions", "riskctl"].includes(currentView()) && !decBusy && Date.now() - decLoadedAt > 5000) loadDecisions();  // cheap: decisions.db only
+  render();
+}
+
+function flash(msg, ok = false) {
+  $("flash").textContent = msg; $("flash").hidden = false; $("flash").className = "alert" + (ok ? " ok" : "");
+  clearTimeout(flash.timer); flash.timer = setTimeout(() => { $("flash").hidden = true; }, 6000);
+}
+
+async function post(url) {
+  try {
+    const res = await fetch(url, { method: "POST" });
+    if (!res.ok) { const d = await res.json().catch(() => ({})); flash(d.detail || `Request failed (HTTP ${res.status}).`); }
+  } catch (e) { flash("Could not reach the simulator."); }
+  refresh();
+}
+
+async function grokCall(kind) {  // sends ONE request to our server, which makes at most 1-2 xAI requests
+  if (grokBusy) return;
+  grokBusy = kind; render();
+  try {
+    const res = await fetch(`/api/grok/${kind}`, { method: "POST" });
+    const d = await res.json().catch(() => ({}));
+    flash(d.message || d.detail || `Request failed (HTTP ${res.status}).`, res.ok);
+  } catch (e) { flash("Could not reach the simulator."); }
+  grokBusy = null; refresh();
+}
+
+document.addEventListener("click", (ev) => {
+  const b = ev.target.closest("button");
+  if (!b) return;
+  if (b.dataset.action === "grok-test") grokCall("test");
+  else if (b.dataset.action === "grok-research") grokCall("research");
+  else if (b.dataset.decide) post(`/api/proposals/${encodeURIComponent(b.dataset.id)}/${b.dataset.decide}`);
+  else if (b.dataset.action === "decisions-run") decisionCall("/api/decisions/run", null, "run");
+  else if (b.dataset.btrun) { clearTimeout(BT.poll); btWatch(b.dataset.btrun); }
+  else if (b.dataset.btseg) { BT.seg = b.dataset.btseg; renderBacktest(); }
+  else if (b.dataset.action === "check-stops") decisionCall("/api/risk/check-stops", null, "stops");
+  else if (b.dataset.dapprove) decisionCall(`/api/decisions/${encodeURIComponent(b.dataset.dapprove)}/approve`, { content_hash: b.dataset.hash }, b.dataset.dapprove);
+  else if (b.dataset.dtoggle) { const id = b.dataset.dtoggle; if (!decOpen.delete(id)) decOpen.add(id); renderDecisions(); }
+  else if (b.dataset.dreject) decisionCall(`/api/decisions/${encodeURIComponent(b.dataset.dreject)}/reject`, null, b.dataset.dreject);
+  else if (b.dataset.tab) { marketTab = b.dataset.tab; render(); }
+  else if (b.dataset.crypto || b.dataset.interval) {
+    if (b.dataset.crypto) cryptoPair = b.dataset.crypto; else cryptoInterval = Number(b.dataset.interval);
+    if (CHARTS.cryptoChart) CHARTS.cryptoChart.hover = null;
+    renderCrypto(); loadCrypto();
+  }
+  else if (b.dataset.stock) { stockSym = b.dataset.stock; if (CHARTS.stockChart) CHARTS.stockChart.hover = null; renderStocks(); loadStocks(); }
+  else if (b.dataset.action === "toggle") post("/api/toggle");
+  else if (b.dataset.action === "approval") post("/api/approval-mode");
+  else if (b.dataset.action === "reset" && window.confirm("Reset the simulated account back to starting cash?")) post("/api/reset");
+});
+attachHover("chart");
+attachHover("stockChart");
+attachHover("cryptoChart");
+$("eqDetails").addEventListener("toggle", render);
+$("btForm").addEventListener("submit", btRun);
+$("btMarket").addEventListener("change", btMarketChanged);
+["btSymbol", "btInterval", "btSource"].forEach((id) => $(id).addEventListener("change", btHint));
+attachHover("btEq");
+attachHover("btDd");
+attachHover("btPx");
+$("rcResetForm").addEventListener("submit", (ev) => {  // the server decides; this only sends the written review
+  ev.preventDefault();
+  decisionCall("/api/risk/kill-switch/reset", { reviewer: $("rcReviewer").value, note: $("rcNote").value, confirm: $("rcConfirm").value,
+    triggered_at: D && D.risk.kill_switch.triggered_at }, "reset");
+  $("rcConfirm").value = "";
+});
+window.addEventListener("hashchange", showView);
+window.addEventListener("resize", render);
+
+showView();
+refresh();
+setInterval(refresh, 2000);
+</script>
+</body>
+</html>
